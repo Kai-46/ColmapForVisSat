@@ -474,18 +474,19 @@ bool BaseCameraModel<CameraModel>::HasBogusParams(
     const std::vector<T>& params, const size_t width, const size_t height,
     const T min_focal_length_ratio, const T max_focal_length_ratio,
     const T max_extra_param) {
-  if (HasBogusPrincipalPoint(params, width, height)) {
-    return true;
-  }
+  // @kai
+  // if (HasBogusPrincipalPoint(params, width, height)) {
+  //   return true;
+  // }
 
-  if (HasBogusFocalLength(params, width, height, min_focal_length_ratio,
-                          max_focal_length_ratio)) {
-    return true;
-  }
+  // if (HasBogusFocalLength(params, width, height, min_focal_length_ratio,
+  //                         max_focal_length_ratio)) {
+  //   return true;
+  // }
 
-  if (HasBogusExtraParams(params, max_extra_param)) {
-    return true;
-  }
+  // if (HasBogusExtraParams(params, max_extra_param)) {
+  //   return true;
+  // }
 
   return false;
 }
