@@ -126,7 +126,8 @@ static const int kInvalidCameraModelId = -1;
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)                 \
-  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)
+  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)	\
+  CAMERA_MODEL_CASE(PerspectiveCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -348,6 +349,16 @@ struct ThinPrismFisheyeCameraModel
     : public BaseCameraModel<ThinPrismFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(10, "THIN_PRISM_FISHEYE", 12)
 };
+
+// @kai
+// full perspective camera with skew parameter
+// Parameter list is expected in the following order:
+// fx, fy, cx, cy, s
+struct PerspectiveCameraModel
+	: public BaseCameraModel<PerspectiveCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(11, "PERSPECTIVE", 5)
+};
+
 
 // Check whether camera model with given name or identifier exists.
 bool ExistsCameraModelWithName(const std::string& model_name);
@@ -1480,6 +1491,92 @@ void ThinPrismFisheyeCameraModel::Distortion(const T* extra_params, const T u,
   *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2) + sx1 * r2;
   *dv = v * radial + T(2) * p2 * uv + p1 * (r2 + T(2) * v2) + sy1 * r2;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Perspective Camera Model
+
+std::string PerspectiveCameraModel::InitializeParamsInfo() {
+	return "fx, fy, cx, cy, s";
+}
+
+std::vector<size_t> PerspectiveCameraModel::InitializeFocalLengthIdxs() {
+	return {0, 1};
+}
+
+std::vector<size_t> PerspectiveCameraModel::InitializePrincipalPointIdxs() {
+	return {2, 3};
+}
+
+std::vector<size_t> PerspectiveCameraModel::InitializeExtraParamsIdxs() {
+	return {4};
+}
+
+std::vector<double> PerspectiveCameraModel::InitializeParams(
+    const double focal_length, const size_t width, const size_t height) {
+  return {focal_length,
+          focal_length,
+          width / 2.0,
+          height / 2.0,
+          0};
+}
+
+template <typename T>
+void PerspectiveCameraModel::WorldToImage(const T* params, const T u, const T v,
+                                         T* x, T* y) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+  const T s = params[4];  // skew parameter
+
+  // Distortion
+  // T du, dv;
+  // Distortion(&params[5], u, v, &du, &dv);
+  // *x = u + du;
+  // *y = v + dv;
+
+  *x = u;
+  *y = v;
+
+  // Transform to image coordinates
+  *x = f1 * *x + s * *y + c1;   // skew effect is added here
+  *y = f2 * *y + c2;
+}
+
+template <typename T>
+void PerspectiveCameraModel::ImageToWorld(const T* params, const T x, const T y,
+                                     T* u, T* v) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+  const T s = params[4];  // skew parameter
+
+  // Lift points to normalized plane
+  *v = (y - c2) / f2;
+  *u = (x - c1 - s * *v) / f1;  // skew effect is added here
+
+  // IterativeUndistortion(&params[5], u, v);
+}
+
+//template <typename T>
+//void PerspectiveCameraModel::Distortion(const T* extra_params, const T u, const T v,
+//                                   T* du, T* dv) {
+//  const T k1 = extra_params[0];
+//  const T k2 = extra_params[1];
+//  const T p1 = extra_params[2];
+//  const T p2 = extra_params[3];
+//
+//  const T u2 = u * u;
+//  const T uv = u * v;
+//  const T v2 = v * v;
+//  const T r2 = u2 + v2;
+//  const T radial = k1 * r2 + k2 * r2 * r2;
+//  *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2);
+//  *dv = v * radial + T(2) * p2 * uv + p1 * (r2 + T(2) * v2);
+//}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
