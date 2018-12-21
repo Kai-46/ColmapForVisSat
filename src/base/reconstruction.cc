@@ -32,6 +32,7 @@
 #include "base/reconstruction.h"
 
 #include <fstream>
+#include <iomanip>
 
 #include "base/database_cache.h"
 #include "base/pose.h"
@@ -43,6 +44,8 @@
 #include "util/bitmap.h"
 #include "util/misc.h"
 #include "util/ply.h"
+
+#define PRECISION 17
 
 namespace colmap {
 
@@ -303,106 +306,109 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 }
 
 // @kai
-void Reconstruction::Normalize(const double extent, const double p0,
-                               const double p1, const bool use_images) {
-}
+// void Reconstruction::Normalize(const double extent, const double p0,
+//                                const double p1, const bool use_images) {
+// }
 
-//void Reconstruction::Normalize(const double extent, const double p0,
-//                               const double p1, const bool use_images) {
-//  CHECK_GT(extent, 0);
-//  CHECK_GE(p0, 0);
-//  CHECK_LE(p0, 1);
-//  CHECK_GE(p1, 0);
-//  CHECK_LE(p1, 1);
-//  CHECK_LE(p0, p1);
-//
-//  if ((use_images && reg_image_ids_.size() < 2) ||
-//      (!use_images && points3D_.size() < 2)) {
-//    return;
-//  }
-//
-//  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
-//
-//  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-//    class Image& image = Image(reg_image_ids_[i]);
-//    const Eigen::Vector3d proj_center = image.ProjectionCenter();
-//    proj_centers[&image] = proj_center;
-//  }
-//
-//  // Coordinates of image centers or point locations.
-//  std::vector<float> coords_x;
-//  std::vector<float> coords_y;
-//  std::vector<float> coords_z;
-//  if (use_images) {
-//    coords_x.reserve(proj_centers.size());
-//    coords_y.reserve(proj_centers.size());
-//    coords_z.reserve(proj_centers.size());
-//    for (const auto& proj_center : proj_centers) {
-//      coords_x.push_back(static_cast<float>(proj_center.second(0)));
-//      coords_y.push_back(static_cast<float>(proj_center.second(1)));
-//      coords_z.push_back(static_cast<float>(proj_center.second(2)));
-//    }
-//  } else {
-//    coords_x.reserve(points3D_.size());
-//    coords_y.reserve(points3D_.size());
-//    coords_z.reserve(points3D_.size());
-//    for (const auto& point3D : points3D_) {
-//      coords_x.push_back(static_cast<float>(point3D.second.X()));
-//      coords_y.push_back(static_cast<float>(point3D.second.Y()));
-//      coords_z.push_back(static_cast<float>(point3D.second.Z()));
-//    }
-//  }
-//
-//  // Determine robust bounding box and mean.
-//
-//  std::sort(coords_x.begin(), coords_x.end());
-//  std::sort(coords_y.begin(), coords_y.end());
-//  std::sort(coords_z.begin(), coords_z.end());
-//
-//  const size_t P0 = static_cast<size_t>(
-//      (coords_x.size() > 3) ? p0 * (coords_x.size() - 1) : 0);
-//  const size_t P1 = static_cast<size_t>(
-//      (coords_x.size() > 3) ? p1 * (coords_x.size() - 1) : coords_x.size() - 1);
-//
-//  const Eigen::Vector3d bbox_min(coords_x[P0], coords_y[P0], coords_z[P0]);
-//  const Eigen::Vector3d bbox_max(coords_x[P1], coords_y[P1], coords_z[P1]);
-//
-//  Eigen::Vector3d mean_coord(0, 0, 0);
-//  for (size_t i = P0; i <= P1; ++i) {
-//    mean_coord(0) += coords_x[i];
-//    mean_coord(1) += coords_y[i];
-//    mean_coord(2) += coords_z[i];
-//  }
-//  mean_coord /= P1 - P0 + 1;
-//
-//  // Calculate scale and translation, such that
-//  // translation is applied before scaling.
-//  const double old_extent = (bbox_max - bbox_min).norm();
-//  double scale;
-//  if (old_extent < std::numeric_limits<double>::epsilon()) {
-//    scale = 1;
-//  } else {
-//    scale = extent / old_extent;
-//  }
-//
-//  const Eigen::Vector3d translation = mean_coord;
-//
-//  // Transform images.
-//  for (auto& image_proj_center : proj_centers) {
-//    image_proj_center.second -= translation;
-//    image_proj_center.second *= scale;
-//    const Eigen::Quaterniond quat(
-//        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-//        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-//    image_proj_center.first->SetTvec(quat * -image_proj_center.second);
-//  }
-//
-//  // Transform points.
-//  for (auto& point3D : points3D_) {
-//    point3D.second.XYZ() -= translation;
-//    point3D.second.XYZ() *= scale;
-//  }
-//}
+void Reconstruction::Normalize(const double extent, const double p0,
+                              const double p1, const bool use_images) {
+    
+ std::cout << "Reconstruction Normalization is called!!!!\n\n";
+ 
+ CHECK_GT(extent, 0);
+ CHECK_GE(p0, 0);
+ CHECK_LE(p0, 1);
+ CHECK_GE(p1, 0);
+ CHECK_LE(p1, 1);
+ CHECK_LE(p0, p1);
+
+ if ((use_images && reg_image_ids_.size() < 2) ||
+     (!use_images && points3D_.size() < 2)) {
+   return;
+ }
+
+ EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+
+ for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+   class Image& image = Image(reg_image_ids_[i]);
+   const Eigen::Vector3d proj_center = image.ProjectionCenter();
+   proj_centers[&image] = proj_center;
+ }
+
+ // Coordinates of image centers or point locations.
+ std::vector<float> coords_x;
+ std::vector<float> coords_y;
+ std::vector<float> coords_z;
+ if (use_images) {
+   coords_x.reserve(proj_centers.size());
+   coords_y.reserve(proj_centers.size());
+   coords_z.reserve(proj_centers.size());
+   for (const auto& proj_center : proj_centers) {
+     coords_x.push_back(static_cast<float>(proj_center.second(0)));
+     coords_y.push_back(static_cast<float>(proj_center.second(1)));
+     coords_z.push_back(static_cast<float>(proj_center.second(2)));
+   }
+ } else {
+   coords_x.reserve(points3D_.size());
+   coords_y.reserve(points3D_.size());
+   coords_z.reserve(points3D_.size());
+   for (const auto& point3D : points3D_) {
+     coords_x.push_back(static_cast<float>(point3D.second.X()));
+     coords_y.push_back(static_cast<float>(point3D.second.Y()));
+     coords_z.push_back(static_cast<float>(point3D.second.Z()));
+   }
+ }
+
+ // Determine robust bounding box and mean.
+
+ std::sort(coords_x.begin(), coords_x.end());
+ std::sort(coords_y.begin(), coords_y.end());
+ std::sort(coords_z.begin(), coords_z.end());
+
+ const size_t P0 = static_cast<size_t>(
+     (coords_x.size() > 3) ? p0 * (coords_x.size() - 1) : 0);
+ const size_t P1 = static_cast<size_t>(
+     (coords_x.size() > 3) ? p1 * (coords_x.size() - 1) : coords_x.size() - 1);
+
+ const Eigen::Vector3d bbox_min(coords_x[P0], coords_y[P0], coords_z[P0]);
+ const Eigen::Vector3d bbox_max(coords_x[P1], coords_y[P1], coords_z[P1]);
+
+ Eigen::Vector3d mean_coord(0, 0, 0);
+ for (size_t i = P0; i <= P1; ++i) {
+   mean_coord(0) += coords_x[i];
+   mean_coord(1) += coords_y[i];
+   mean_coord(2) += coords_z[i];
+ }
+ mean_coord /= P1 - P0 + 1;
+
+ // Calculate scale and translation, such that
+ // translation is applied before scaling.
+ const double old_extent = (bbox_max - bbox_min).norm();
+ double scale;
+ if (old_extent < std::numeric_limits<double>::epsilon()) {
+   scale = 1;
+ } else {
+   scale = extent / old_extent;
+ }
+
+ const Eigen::Vector3d translation = mean_coord;
+
+ // Transform images.
+ for (auto& image_proj_center : proj_centers) {
+   image_proj_center.second -= translation;
+   image_proj_center.second *= scale;
+   const Eigen::Quaterniond quat(
+       image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
+       image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
+   image_proj_center.first->SetTvec(quat * -image_proj_center.second);
+ }
+
+ // Transform points.
+ for (auto& point3D : points3D_) {
+   point3D.second.XYZ() -= translation;
+   point3D.second.XYZ() *= scale;
+ }
+}
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
   for (auto& image : images_) {
@@ -760,7 +766,8 @@ void Reconstruction::Read(const std::string& path) {
   }
 }
 
-void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
+// @kai
+void Reconstruction::Write(const std::string& path) const { WriteText(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(JoinPaths(path, "cameras.txt"));
@@ -1676,6 +1683,9 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
+    // set fulll precision
+  file << std::setprecision(PRECISION);
+  
   file << "# Camera list with one line of data per camera:" << std::endl;
   file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
   file << "# Number of cameras: " << cameras_.size() << std::endl;
@@ -1683,6 +1693,9 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
   for (const auto& camera : cameras_) {
     std::ostringstream line;
 
+    // set fulll precision
+    line << std::setprecision(PRECISION);
+      
     line << camera.first << " ";
     line << camera.second.ModelName() << " ";
     line << camera.second.Width() << " ";
@@ -1702,7 +1715,10 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 void Reconstruction::WriteImagesText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
-
+  
+    // set fulll precision
+  file << std::setprecision(PRECISION);
+    
   file << "# Image list with two lines of data per image:" << std::endl;
   file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
           "NAME"
@@ -1719,7 +1735,10 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
 
     std::ostringstream line;
     std::string line_string;
-
+    
+    // set fulll precision
+    line << std::setprecision(PRECISION);
+    
     line << image.first << " ";
 
     // QVEC (qw, qx, qy, qz)
@@ -1763,6 +1782,9 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
+  // set fulll precision
+  file << std::setprecision(PRECISION);
+  
   file << "# 3D point list with one line of data per point:" << std::endl;
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
           "TRACK[] as (IMAGE_ID, POINT2D_IDX)"
@@ -1781,7 +1803,9 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
     file << point3D.second.Error() << " ";
 
     std::ostringstream line;
-
+    // set fulll precision
+    line << std::setprecision(PRECISION);
+    
     for (const auto& track_el : point3D.second.Track().Elements()) {
       line << track_el.image_id << " ";
       line << track_el.point2D_idx << " ";
