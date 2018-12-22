@@ -192,6 +192,23 @@ int RunBundleAdjuster(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunNormalize(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.Parse(argc, argv);
+  
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+    
+  reconstruction.Normalize();
+  reconstruction.Write(output_path);
+  
+  return EXIT_SUCCESS;
+}
+
 int RunColorExtractor(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -1294,7 +1311,6 @@ int RunPointTriangulator(int argc, char** argv) {
     PrintHeading1("Bundle adjustment");
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
     CHECK(bundle_adjuster.Solve(&reconstruction));
-
     size_t num_changed_observations = 0;
     num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
     num_changed_observations += FilterPoints(mapper_options, &mapper);
@@ -1863,7 +1879,9 @@ int main(int argc, char** argv) {
   commands.emplace_back("vocab_tree_builder", &RunVocabTreeBuilder);
   commands.emplace_back("vocab_tree_matcher", &RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &RunVocabTreeRetriever);
-
+  // @kai
+  commands.emplace_back("normalize", &RunNormalize);
+    
   if (argc == 1) {
     return ShowHelp(commands);
   }
