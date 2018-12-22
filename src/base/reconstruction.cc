@@ -752,12 +752,21 @@ double Reconstruction::ComputeMeanReprojectionError() const {
   }
 }
 
+// @kai never use the binary format that is not very intuitive
 void Reconstruction::Read(const std::string& path) {
-  if (ExistsFile(JoinPaths(path, "cameras.bin")) &&
-      ExistsFile(JoinPaths(path, "images.bin")) &&
-      ExistsFile(JoinPaths(path, "points3D.bin"))) {
-    ReadBinary(path);
-  } else if (ExistsFile(JoinPaths(path, "cameras.txt")) &&
+//   if (ExistsFile(JoinPaths(path, "cameras.bin")) &&
+//       ExistsFile(JoinPaths(path, "images.bin")) &&
+//       ExistsFile(JoinPaths(path, "points3D.bin"))) {
+//     ReadBinary(path);
+//   } else if (ExistsFile(JoinPaths(path, "cameras.txt")) &&
+//              ExistsFile(JoinPaths(path, "images.txt")) &&
+//              ExistsFile(JoinPaths(path, "points3D.txt"))) {
+//     ReadText(path);
+//   } else {
+//     LOG(FATAL) << "cameras, images, points3D files do not exist at " << path;
+//   }
+    
+  if (ExistsFile(JoinPaths(path, "cameras.txt")) &&
              ExistsFile(JoinPaths(path, "images.txt")) &&
              ExistsFile(JoinPaths(path, "points3D.txt"))) {
     ReadText(path);
