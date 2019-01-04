@@ -1349,6 +1349,29 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
   return num_filtered;
 }
 
+// @kai
+void Reconstruction::UpdateReprojErr() {
+	const std::unordered_set<point3D_t>& point3D_ids = this->Point3DIds();
+	for (const auto point3D_id : point3D_ids) {
+		if (!ExistsPoint3D(point3D_id)) {
+			continue;
+		}
+
+		class Point3D& point3D = this->Point3D(point3D_id);
+
+		double reproj_error_sum = 0.0;
+	    for (const auto& track_el : point3D.Track().Elements()) {
+	      const class Image& image = this->Image(track_el.image_id);
+	      const class Camera& camera = this->Camera(image.CameraId());
+	      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+	      const double squared_reproj_error = CalculateSquaredReprojectionError(
+	          point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
+	      reproj_error_sum += std::sqrt(squared_reproj_error);
+	    }
+	    point3D.SetError(reproj_error_sum / point3D.Track().Length());
+	}
+}
+
 void Reconstruction::ReadCamerasText(const std::string& path) {
   cameras_.clear();
 

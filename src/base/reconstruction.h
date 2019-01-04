@@ -239,6 +239,10 @@ class Reconstruction {
   double ComputeMeanObservationsPerRegImage() const;
   double ComputeMeanReprojectionError() const;
 
+  // @kai
+  // update reproj. error for each 3D point
+  void UpdateReprojErr();
+
   // Read data from text or binary file. Prefer binary data if it exists.
   void Read(const std::string& path);
   void Write(const std::string& path) const;
