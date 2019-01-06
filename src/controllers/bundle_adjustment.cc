@@ -94,7 +94,7 @@ void BundleAdjustmentController::Run() {
   }
   ba_config.SetConstantPose(reg_image_ids[0]);
   // @kai commenting out this strange line
-//  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  ba_config.SetConstantTvec(reg_image_ids[1], {0});
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
