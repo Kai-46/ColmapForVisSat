@@ -1530,18 +1530,11 @@ void PerspectiveCameraModel::WorldToImage(const T* params, const T u, const T v,
   const T c2 = params[3];
   const T s = params[4];  // skew parameter
 
-  // Distortion
-  // T du, dv;
-  // Distortion(&params[5], u, v, &du, &dv);
-  // *x = u + du;
-  // *y = v + dv;
-
-  *x = u;
-  *y = v;
+  // No Distortion
 
   // Transform to image coordinates
-  *x = f1 * *x + s * *y + c1;   // skew effect is added here
-  *y = f2 * *y + c2;
+  *x = f1 * u + s * v + c1;   // skew effect is added here
+  *y = f2 * v + c2;
 }
 
 template <typename T>
