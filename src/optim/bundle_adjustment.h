@@ -69,6 +69,11 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
+  // whether to add soft constraint on 3D points
+  bool constrain_points = false;
+  LossFunctionType constrain_points_loss = LossFunctionType::TRIVIAL;
+  double constrain_points_loss_scale = 1.0;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
@@ -90,6 +95,7 @@ struct BundleAdjustmentOptions {
   // Create a new loss function based on the specified options. The caller
   // takes ownership of the loss function.
   ceres::LossFunction* CreateLossFunction() const;
+  ceres::LossFunction* CreateConstrainPointsLossFunction() const;
 
   bool Check() const;
 };
@@ -140,16 +146,19 @@ class BundleAdjustmentConfig {
   // be variable or constant but not both at the same time.
   void AddVariablePoint(const point3D_t point3D_id);
   void AddConstantPoint(const point3D_t point3D_id);
+  void AddConstrainedPoint(const point3D_t point3D_id);
   bool HasPoint(const point3D_t point3D_id) const;
   bool HasVariablePoint(const point3D_t point3D_id) const;
   bool HasConstantPoint(const point3D_t point3D_id) const;
+  bool HasConstrainedPoint(const point3D_t point3D_id) const;
   void RemoveVariablePoint(const point3D_t point3D_id);
   void RemoveConstantPoint(const point3D_t point3D_id);
-
+  void RemoveConstrainedPoint(const point3D_t point3D_id);
   // Access configuration data.
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
+  const std::unordered_set<point3D_t>& ConstrainedPoints() const;
   const std::vector<int>& ConstantTvec(const image_t image_id) const;
 
  private:
@@ -157,6 +166,9 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
+  // add constrained 3D points
+  std::unordered_set<point3D_t> constrained_point3D_ids_;
+
   std::unordered_set<image_t> constant_poses_;
   std::unordered_map<image_t, std::vector<int>> constant_tvecs_;
 };
@@ -184,10 +196,15 @@ class BundleAdjuster {
   void AddPointToProblem(const point3D_t point3D_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
+  // add constrained point to problem
+  void AddConstrainedPointToProblem(const point3D_t point3D_id,
+		                 Reconstruction* reconstruction,
+                         ceres::LossFunction* loss_function);
 
  protected:
   void ParameterizeCameras(Reconstruction* reconstruction);
   void ParameterizePoints(Reconstruction* reconstruction);
+  // void ParameterizeConstrainedPoints(Reconstruction* reconstruction);
 
   const BundleAdjustmentOptions options_;
   BundleAdjustmentConfig config_;

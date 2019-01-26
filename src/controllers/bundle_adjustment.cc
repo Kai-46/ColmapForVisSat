@@ -92,9 +92,18 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
-  ba_config.SetConstantPose(reg_image_ids[0]);
-  // @kai commenting out this strange line
-  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+
+  // check if we should put a constraint on the 3D points
+  if (ba_options.constrain_points) {
+	  const std::unordered_set<point3D_t>& point3D_ids = reconstruction_->Point3DIds();
+	  for (const point3D_t point3D_id : point3D_ids) {
+		  ba_config.AddConstrainedPoint(point3D_id);
+	  }
+  } else {
+	  ba_config.SetConstantPose(reg_image_ids[0]);
+	  // @kai commenting out this strange line
+	  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  }
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);

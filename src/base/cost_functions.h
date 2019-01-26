@@ -257,6 +257,34 @@ class RelativePoseCostFunction {
   const double y2_;
 };
 
+// cost function that put a soft constraint on the 3D points
+// so that it does not deviate too much from the specified coordinates
+class Point3DCostFunction {
+ public:
+  explicit Point3DCostFunction(const Eigen::Vector3d& point3D)
+      : x_(point3D(0)), y_(point3D(1)), z_(point3D(2)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& point3D) {
+    return (new ceres::AutoDiffCostFunction<Point3DCostFunction, 3, 3>(
+    				new Point3DCostFunction(point3D)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const point3D, T* residuals) const {
+    // deviation error
+    residuals[0] = point3D[0] - T(x_);
+    residuals[1] = point3D[1] - T(y_);
+    residuals[2] = point3D[2] - T(z_);
+
+    return true;
+  }
+
+ private:
+  const double x_;
+  const double y_;
+  const double z_;
+};
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_COST_FUNCTIONS_H_
