@@ -206,13 +206,17 @@ int RunNormalize(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("save_transform_to_file", &save_transform_to_file);
   options.Parse(argc, argv);
-  
+
+//  std::cout << "save_transform_to_file: " << save_transform_to_file << std::endl;
+
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
   
   if (save_transform_to_file != "None") {
-	Eigen::Vector3d translation;
-	double scale;
+//	std::cout << "what the heck!" << std::endl;
+
+	Eigen::Vector3d translation(0., 0., 0.);
+	double scale = 0.;
 	reconstruction.Normalize(10., 0.1, 0.9, true, &translation, &scale);
 	
 	std::ofstream file(save_transform_to_file, std::ios::trunc);

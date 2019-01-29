@@ -410,7 +410,8 @@ void Reconstruction::Normalize(const double extent, const double p0,
  }
 
  // save result
- if (!translation_applied && !scale_applied) {
+ if (translation_applied && scale_applied) {
+    //std::cout << "writing the result ...";
     (*translation_applied)(0) = translation(0);
     (*translation_applied)(1) = translation(1);
     (*translation_applied)(2) = translation(2);
