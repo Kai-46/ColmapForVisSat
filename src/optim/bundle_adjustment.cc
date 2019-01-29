@@ -71,13 +71,16 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateConstrainPointsLossFunction(
 	  ceres::LossFunction* loss_function = nullptr;
 	  switch (constrain_points_loss) {
 	    case LossFunctionType::TRIVIAL:
-	      loss_function = new ceres::TrivialLoss();
+	      loss_function = new ceres::ScaledLoss(new ceres::TrivialLoss(), constrain_points_loss_weight,
+	    		  ceres::TAKE_OWNERSHIP);
 	      break;
 	    case LossFunctionType::SOFT_L1:
-	      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
+	      loss_function = new ceres::ScaledLoss(new ceres::SoftLOneLoss(constrain_points_loss_scale), constrain_points_loss_weight,
+	    		  ceres::TAKE_OWNERSHIP);
 	      break;
 	    case LossFunctionType::CAUCHY:
-	      loss_function = new ceres::CauchyLoss(loss_function_scale);
+	      loss_function = new ceres::ScaledLoss(new ceres::CauchyLoss(constrain_points_loss_scale), constrain_points_loss_weight,
+	    		  ceres::TAKE_OWNERSHIP);
 	      break;
 	  }
 	  CHECK_NOTNULL(loss_function);

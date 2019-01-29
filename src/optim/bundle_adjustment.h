@@ -73,6 +73,7 @@ struct BundleAdjustmentOptions {
   bool constrain_points = false;
   LossFunctionType constrain_points_loss = LossFunctionType::TRIVIAL;
   double constrain_points_loss_scale = 1.0;
+  double constrain_points_loss_weight = 1.0;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;

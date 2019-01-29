@@ -435,6 +435,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
 //                              &bundle_adjustment->constrain_points_loss);
   AddAndRegisterDefaultOption("BundleAdjustment.constrain_points_loss_scale",
                               &bundle_adjustment->constrain_points_loss_scale);
+  AddAndRegisterDefaultOption("BundleAdjustment.constrain_points_loss_weight",
+                              &bundle_adjustment->constrain_points_loss_weight);
 }
 
 void OptionManager::AddMapperOptions() {
