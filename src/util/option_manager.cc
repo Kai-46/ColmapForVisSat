@@ -428,6 +428,13 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  // constrain points options
+  AddAndRegisterDefaultOption("BundleAdjustment.constrain_points",
+                              &bundle_adjustment->constrain_points);
+//  AddAndRegisterDefaultOption("BundleAdjustment.constrain_points_loss",
+//                              &bundle_adjustment->constrain_points_loss);
+  AddAndRegisterDefaultOption("BundleAdjustment.constrain_points_loss_scale",
+                              &bundle_adjustment->constrain_points_loss_scale);
 }
 
 void OptionManager::AddMapperOptions() {

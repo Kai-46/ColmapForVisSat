@@ -47,6 +47,10 @@
 #include "util/opengl_utils.h"
 #include "util/version.h"
 
+#include <Eigen/Core>
+#include <fstream>
+#define PRECISION 17
+
 using namespace colmap;
 
 #ifdef CUDA_ENABLED
@@ -195,15 +199,34 @@ int RunBundleAdjuster(int argc, char** argv) {
 int RunNormalize(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
+  std::string save_transform_to_file = "None"; 
+
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("save_transform_to_file", &save_transform_to_file);
   options.Parse(argc, argv);
   
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-    
-  reconstruction.Normalize();
+  
+  if (save_transform_to_file != "None") {
+	Eigen::Vector3d translation;
+	double scale;
+	reconstruction.Normalize(10., 0.1, 0.9, true, &translation, &scale);
+	
+	std::ofstream file(save_transform_to_file, std::ios::trunc);
+	CHECK(file.is_open()) << save_transform_to_file;
+	
+	// set full precision
+	file << std::setprecision(PRECISION);
+	file << "translation: " << std::endl;
+	file << translation(0) << " " << translation(1) << " " << translation(2) << std::endl;
+	file << "scale: " << std::endl;
+	file << scale << std::endl;
+  } else {
+	reconstruction.Normalize();
+  }
   reconstruction.Write(output_path);
   
   return EXIT_SUCCESS;

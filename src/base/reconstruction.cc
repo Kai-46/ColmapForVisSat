@@ -311,7 +311,7 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 // }
 
 void Reconstruction::Normalize(const double extent, const double p0,
-                              const double p1, const bool use_images) {
+                              const double p1, const bool use_images, Eigen::Vector3d *translation_applied, double *scale_applied) {
     
  std::cout << "Reconstruction Normalization is called!!!!\n\n";
  
@@ -407,6 +407,14 @@ void Reconstruction::Normalize(const double extent, const double p0,
  for (auto& point3D : points3D_) {
    point3D.second.XYZ() -= translation;
    point3D.second.XYZ() *= scale;
+ }
+
+ // save result
+ if (!translation_applied && !scale_applied) {
+    (*translation_applied)(0) = translation(0);
+    (*translation_applied)(1) = translation(1);
+    (*translation_applied)(2) = translation(2);
+    *scale_applied = scale;
  }
 }
 

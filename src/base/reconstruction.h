@@ -167,7 +167,7 @@ class Reconstruction {
   // given `extent`, whereas `p0` and `p1` determine the minimum and
   // maximum percentiles of the camera centers considered.
   void Normalize(const double extent = 10.0, const double p0 = 0.1,
-                 const double p1 = 0.9, const bool use_images = true);
+                 const double p1 = 0.9, const bool use_images = true, Eigen::Vector3d* translation_applied=NULL, double *scale_applied=NULL);
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
