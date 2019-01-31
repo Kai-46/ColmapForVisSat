@@ -202,14 +202,25 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 
     std::sort(image_depths.begin(), image_depths.end());
 
-    const float kMinPercentile = 0.01f;
-    const float kMaxPercentile = 0.99f;
+//     const float kMinPercentile = 0.01f;
+//     const float kMaxPercentile = 0.99f;
+    
+    // let's be more conservative
+    const float kMinPercentile = 0.05f;
+    const float kMaxPercentile = 0.95f;
+    
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
 
-    const float kStretchRatio = 0.25f;
-    depth_range.first *= (1.0f - kStretchRatio);
-    depth_range.second *= (1.0f + kStretchRatio);
+//     const float kStretchRatio = 0.25f;
+//     depth_range.first *= (1.0f - kStretchRatio);
+//     depth_range.second *= (1.0f + kStretchRatio);
+      
+    // one should stretch the portion of depth range span
+    const float kStretchRatio = 0.1;
+    float stretch = kStretchRatio * (depth_range.second - depth_range.first);
+    depth_range.first -= stretch;
+    depth_range.second += stretch;
   }
 
   return depth_ranges;
