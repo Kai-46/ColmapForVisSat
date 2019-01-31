@@ -78,7 +78,8 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(init_min_num_inliers, 0);
   CHECK_OPTION_GT(init_max_error, 0.0);
   CHECK_OPTION_GE(init_max_forward_motion, 0.0);
-  CHECK_OPTION_LE(init_max_forward_motion, 1.0);
+  // @kai seems not to work with satellite images
+  // CHECK_OPTION_LE(init_max_forward_motion, 1.0);
   CHECK_OPTION_GE(init_min_tri_angle, 0.0);
   CHECK_OPTION_GE(init_max_reg_trials, 1);
   CHECK_OPTION_GT(abs_pose_max_error, 0.0);
