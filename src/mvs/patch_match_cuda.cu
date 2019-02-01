@@ -123,11 +123,15 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
   }
 }
 
+// make the perturbation more robust to big mean depth
 __device__ inline float PerturbDepth(const float perturbation,
+                                     const float depth_uncertainty,
                                      const float depth,
                                      curandState* rand_state) {
-  const float depth_min = (1.0f - perturbation) * depth;
-  const float depth_max = (1.0f + perturbation) * depth;
+  // const float depth_min = (1.0f - perturbation) * depth;
+  // const float depth_max = (1.0f + perturbation) * depth;
+  const float depth_min = depth - perturbation * depth_uncertainty;
+  const float depth_max = depth + perturbation * depth_uncertainty;
   return GenerateRandomDepth(depth_min, depth_max, rand_state);
 }
 
@@ -932,7 +936,7 @@ __global__ void SweepFromTopToBottom(
 
     // Generate random parameters.
     rand_param_state.depth =
-        PerturbDepth(options.perturbation, curr_param_state.depth, &rand_state);
+        PerturbDepth(options.perturbation, options.depth_max - options.depth_min, curr_param_state.depth, &rand_state);
     PerturbNormal(row, col, options.perturbation * M_PI,
                   curr_param_state.normal, &rand_state,
                   rand_param_state.normal);
