@@ -117,8 +117,22 @@ class PatchMatchCuda {
 
   // Calibration matrix for rotated versions of reference image
   // as {K[0, 0], K[0, 2], K[1, 1], K[1, 2]} corresponding to _rotationInHalfPi.
+  // Calibration and extrinsics are only used for computing inter-image homography
   float ref_K_host_[4][4];
   float ref_inv_K_host_[4][4];
+
+  // Extrinsics for rotated versions of reference image
+  float ref_R_host_[4][9];
+  float ref_T_host_[4][3];
+
+  // Projection center of the reference image in scene coordinate frame
+  // rotation does not affect the projection center
+  float ref_C_host_[3];
+  float max_dist_per_pixel;
+
+  // Projection matrix and inverse projection matrix for rotated versions of reference image
+  float ref_P_host_[4][16];
+  float ref_inv_P_host_[4][16];
 
   // Data for reference image.
   std::unique_ptr<GpuMatRefImage> ref_image_;

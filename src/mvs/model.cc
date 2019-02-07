@@ -38,6 +38,10 @@
 #include "base/triangulation.h"
 #include "util/misc.h"
 
+#include <map>
+#include <fstream>
+
+
 namespace colmap {
 namespace mvs {
 
@@ -57,6 +61,18 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   Reconstruction reconstruction;
   reconstruction.Read(JoinPaths(path, "sparse"));
 
+  // read-in the last row of the 4 by 4 matrices here
+  std::map<std::string, double *> last_rows;
+  std::ifstream infile;
+  infile.open(JoinPaths(path, "last_rows.txt"));
+  std::string image_name;
+  double vec[4];
+  while (infile >> image_name >> vec[0] >> vec[1] >> vec[2] >> vec[3]) {
+	  double* vec_ptr = new double[4];
+	  memcpy(vec_ptr, vec, 4*sizeof(double));
+	  last_rows[image_name] = vec_ptr;
+  }
+
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
@@ -67,17 +83,23 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
 
     const std::string image_path = JoinPaths(path, "images", image.Name());
-    const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
-        camera.CalibrationMatrix().cast<float>();
-    const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
-        QuaternionToRotationMatrix(image.Qvec()).cast<float>();
-    const Eigen::Vector3f T = image.Tvec().cast<float>();
+    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K = camera.CalibrationMatrix();
+    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R = QuaternionToRotationMatrix(image.Qvec());
+    const Eigen::Vector3d T = image.Tvec();
 
     images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
                         R.data(), T.data());
+    // set last row
+    images.back().SetLastRow(last_rows.find(image.Name())->second);
+
     image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), i);
+  }
+
+  // free memory
+  for (std::map<std::string, double *>::iterator it=last_rows.begin(); it!=last_rows.end(); ++it) {
+	  delete [] it->second;
   }
 
   points.reserve(reconstruction.NumPoints3D());
@@ -173,15 +195,15 @@ const std::vector<std::vector<int>>& Model::GetMaxOverlappingImagesFromPMVS()
   return pmvs_vis_dat_;
 }
 
+// need to modify here
+// depth is now defined as the inverse of the fourth component
 std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
   std::vector<std::vector<float>> depths(images.size());
   for (const auto& point : points) {
-    const Eigen::Vector3f X(point.x, point.y, point.z);
-    for (const auto& image_idx : point.track) {
+     for (const auto& image_idx : point.track) {
       const auto& image = images.at(image_idx);
-      const float depth =
-          Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
-          image.GetT()[2];
+      // make sure single-precision is enough for depth
+      const float depth = image.GetDepth(point.x, point.y, point.z);
       if (depth > 0) {
         depths[image_idx].push_back(depth);
       }
@@ -250,9 +272,9 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
   std::vector<Eigen::Vector3d> proj_centers(images.size());
   for (size_t image_idx = 0; image_idx < images.size(); ++image_idx) {
     const auto& image = images[image_idx];
-    Eigen::Vector3f C;
-    ComputeProjectionCenter(image.GetR(), image.GetT(), C.data());
-    proj_centers[image_idx] = C.cast<double>();
+    double C[3];
+    image.GetCDouble(C);
+    proj_centers[image_idx] = Eigen::Map<const Eigen::Vector3d>(C);
   }
 
   std::vector<std::map<int, std::vector<float>>> all_triangulation_angles(

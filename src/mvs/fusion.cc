@@ -217,22 +217,15 @@ void StereoFusion::Run() {
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
         static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
 
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
-        Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
-            image.GetK());
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K =
+        Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(image.GetK());
     K(0, 0) *= bitmap_scales_.at(image_idx).first;
     K(0, 2) *= bitmap_scales_.at(image_idx).first;
     K(1, 1) *= bitmap_scales_.at(image_idx).second;
     K(1, 2) *= bitmap_scales_.at(image_idx).second;
-
-    ComposeProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                            P_.at(image_idx).data());
-    ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                                   inv_P_.at(image_idx).data());
-    inv_R_.at(image_idx) =
-        Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
-            image.GetR())
-            .transpose();
+    // pass back to image
+    image.SetK(K.data());
+    image.GetPinvP(P_.at(image_idx).data(), inv_P_.at(image_idx).data());
   }
 
   size_t num_fused_images = 0;
@@ -336,10 +329,10 @@ void StereoFusion::Fuse() {
     // pixel has already been added and we need to check for consistency.
     if (traversal_depth > 0) {
       // Project reference point into current view.
-      const Eigen::Vector3f proj = P_.at(image_idx) * fused_ref_point;
+      const Eigen::Vector4f proj = P_.at(image_idx) * fused_ref_point;
 
       // Depth error of reference depth with current depth.
-      const float depth_error = std::abs((proj(2) - depth) / depth);
+      const float depth_error = std::abs((proj(3)/proj(2) - depth) / depth);
       if (depth_error > options_.max_depth_error) {
         continue;
       }
@@ -355,11 +348,15 @@ void StereoFusion::Fuse() {
     }
 
     // Determine normal direction in global reference frame.
+    // Already in the global reference frame
     const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f normal =
-        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                               normal_map.Get(row, col, 1),
-                                               normal_map.Get(row, col, 2));
+    const Eigen::Vector3f normal(normal_map.Get(row, col, 0),
+    		normal_map.Get(row, col, 1), normal_map.Get(row, col, 2));
+
+//    const Eigen::Vector3f normal =
+//        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
+//                                               normal_map.Get(row, col, 1),
+//                                               normal_map.Get(row, col, 2));
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -370,9 +367,10 @@ void StereoFusion::Fuse() {
     }
 
     // Determine 3D location of current depth value.
-    const Eigen::Vector3f xyz =
+    const Eigen::Vector4f xyz_homo =
         inv_P_.at(image_idx) *
-        Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
+        Eigen::Vector4f(col, row, 1.0f, 1.0f / depth);
+    const Eigen::Vector3f xyz(xyz_homo(0)/xyz_homo(3), xyz_homo(1)/xyz_homo(3), xyz_homo(2)/xyz_homo(3));
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;

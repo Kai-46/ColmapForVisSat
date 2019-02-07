@@ -64,10 +64,70 @@ texture<float, cudaTextureType2DLayered, cudaReadModeElementType>
     src_depth_maps_texture;
 texture<float, cudaTextureType2D, cudaReadModeElementType> poses_texture;
 
+// Note : calibration and extrinsics are only used to compute inter-image homography
+//        projection matrix maps points between world space and image space
+
 // Calibration of reference image as {fx, cx, fy, cy}.
 __constant__ float ref_K[4];
 // Calibration of reference image as {1/fx, -cx/fx, 1/fy, -cy/fy}.
 __constant__ float ref_inv_K[4];
+
+// Extrinsics of reference image
+__constant__ float ref_R[9];
+__constant__ float ref_T[3];
+
+// 4 by 4 projection matrix of reference image and its inverse
+__constant__ float ref_P[16];
+__constant__ float ref_inv_P[16];
+
+// projection center of the reference image in the scene coordinate frame
+__constant__ float ref_C[3];
+
+// minimum spatial resolution of these images
+__constant__ float max_dist_per_pixel;
+
+// homography
+__device__ inline void HomographyWarp(const float mat[9],
+                                      const float vec[2],
+                                      float result[2]) {
+  const float inv_third = 1.0f / (mat[6] * vec[0] + mat[7] * vec[1] + mat[8]);
+  result[0] = inv_third * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2]);
+  result[1] = inv_third * (mat[3] * vec[0] + mat[4] * vec[1] + mat[5]);
+}
+
+// projection
+__device__ inline void Projection(const float mat[16],
+                                  const float vec[3],
+                                  float result[3]) {
+  const float inv_z = 1.0f / (mat[8] * vec[0] + mat[9] * vec[1] + mat[10] * vec[2] + mat[11]);
+  result[0] = inv_z * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2] + mat[3]);
+  result[1] = inv_z * (mat[4] * vec[0] + mat[5] * vec[1] + mat[6] * vec[2] + mat[7]);
+  // we use w to denote projective depth
+  // return projective depth
+  result[2] = 1.0f / (inv_z * (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] * vec[2] + mat[15]));
+}
+
+// inverse projection
+__device__ inline void InverseProjection(const float mat[16],
+									     const float vec[3],
+										 float result[3]) {
+  const float inv_depth = 1.0f / vec[2];
+  const float inv_fourth = 1.0f / (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] + mat[15] * inv_depth);
+  result[0] = inv_fourth * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2] + mat[3] * inv_depth);
+  result[1] = inv_fourth * (mat[4] * vec[0] + mat[5] * vec[1] + mat[6] + mat[7] * inv_depth);
+  result[2] = inv_fourth * (mat[8] * vec[0] + mat[9] * vec[1] + mat[10] + mat[11] * inv_depth);
+}
+
+
+__device__ inline float DotProduct3(const float vec1[3], const float vec2[3]) {
+  return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2];
+}
+
+// eucliden distance
+__device__ inline float EuclidDist(const float vec1[3], const float vec2[3]) {
+  const float diff[3] = {vec1[0] - vec2[0], vec1[1] - vec2[1], vec1[2] - vec2[2]};
+  return sqrt(DotProduct3(diff, diff));
+}
 
 __device__ inline void Mat33DotVec3(const float mat[9], const float vec[3],
                                     float result[3]) {
@@ -76,17 +136,15 @@ __device__ inline void Mat33DotVec3(const float mat[9], const float vec[3],
   result[2] = mat[6] * vec[0] + mat[7] * vec[1] + mat[8] * vec[2];
 }
 
-__device__ inline void Mat33DotVec3Homogeneous(const float mat[9],
-                                               const float vec[2],
-                                               float result[2]) {
-  const float inv_z = 1.0f / (mat[6] * vec[0] + mat[7] * vec[1] + mat[8]);
-  result[0] = inv_z * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2]);
-  result[1] = inv_z * (mat[3] * vec[0] + mat[4] * vec[1] + mat[5]);
-}
 
-__device__ inline float DotProduct3(const float vec1[3], const float vec2[3]) {
-  return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2];
-}
+//__device__ inline void Mat33DotVec3Homogeneous(const float mat[9],
+//                                               const float vec[2],
+//                                               float result[2]) {
+//  const float inv_z = 1.0f / (mat[6] * vec[0] + mat[7] * vec[1] + mat[8]);
+//  result[0] = inv_z * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2]);
+//  result[1] = inv_z * (mat[3] * vec[0] + mat[4] * vec[1] + mat[5]);
+//}
+
 
 __device__ inline float GenerateRandomDepth(const float depth_min,
                                             const float depth_max,
@@ -193,12 +251,52 @@ __device__ inline void PerturbNormal(const int row, const int col,
   perturbed_normal[2] *= inv_norm;
 }
 
+//__device__ inline void ComputePointAtDepth(const float row, const float col,
+//                                           const float depth, float point[3]) {
+//  point[0] = depth * (ref_inv_K[0] * col + ref_inv_K[1]);
+//  point[1] = depth * (ref_inv_K[2] * row + ref_inv_K[3]);
+//  point[2] = depth;
+//}
+
+
+// note that the returned point is in scene coordinate frame
+// surface normal is also in scene coordinate frame
 __device__ inline void ComputePointAtDepth(const float row, const float col,
                                            const float depth, float point[3]) {
-  point[0] = depth * (ref_inv_K[0] * col + ref_inv_K[1]);
-  point[1] = depth * (ref_inv_K[2] * row + ref_inv_K[3]);
-  point[2] = depth;
+  const float vec[3] = {col, row, depth};
+  InverseProjection(ref_P, vec, point);
 }
+
+
+// Transfer depth on plane from viewing ray at row1 to row2. The returned
+// depth is the intersection of the viewing ray through row2 with the plane
+// at row1 defined by the given depth and normal.
+//__device__ inline float PropagateDepth(const float depth1,
+//                                       const float normal1[3], const float row1,
+//                                       const float row2) {
+//  // Point along first viewing ray.
+//  const float x1 = depth1 * (ref_inv_K[2] * row1 + ref_inv_K[3]);
+//  const float y1 = depth1;
+//  // Point on plane defined by point along first viewing ray and plane normal1.
+//  const float x2 = x1 + normal1[2];
+//  const float y2 = y1 - normal1[1];
+//
+//  // Origin of second viewing ray.
+//  // const float x3 = 0.0f;
+//  // const float y3 = 0.0f;
+//  // Point on second viewing ray.
+//  const float x4 = ref_inv_K[2] * row2 + ref_inv_K[3];
+//  // const float y4 = 1.0f;
+//
+//  // Intersection of the lines ((x1, y1), (x2, y2)) and ((x3, y3), (x4, y4)).
+//  const float denom = x2 - x1 + x4 * (y1 - y2);
+//  const float kEps = 1e-5f;
+//  if (abs(denom) < kEps) {
+//    return depth1;
+//  }
+//  const float nom = y1 * x2 - x1 * y2;
+//  return nom / denom;
+//}
 
 // Transfer depth on plane from viewing ray at row1 to row2. The returned
 // depth is the intersection of the viewing ray through row2 with the plane
@@ -206,33 +304,38 @@ __device__ inline void ComputePointAtDepth(const float row, const float col,
 __device__ inline float PropagateDepth(const float depth1,
                                        const float normal1[3], const float row1,
                                        const float row2) {
-  // Point along first viewing ray.
-  const float x1 = depth1 * (ref_inv_K[2] * row1 + ref_inv_K[3]);
-  const float y1 = depth1;
-  // Point on plane defined by point along first viewing ray and plane normal1.
-  const float x2 = x1 + normal1[2];
-  const float y2 = y1 - normal1[1];
+  // first point
+  const float pixel1[3] = {0.0f, row1, depth1};
+  float point1[3] = {0.0f, 0.0f, 0.0f};
+  InverseProjection(ref_inv_P, pixel1, point1);
 
-  // Origin of second viewing ray.
-  // const float x3 = 0.0f;
-  // const float y3 = 0.0f;
-  // Point on second viewing ray.
-  const float x4 = ref_inv_K[2] * row2 + ref_inv_K[3];
-  // const float y4 = 1.0f;
+  // collect co-efficients for inverse depth of pixel (0, row2)
+  const float coeff = normal1[0] * (ref_inv_P[15] - ref_inv_P[3]) + \
+		  	  	  	  normal1[1] * (ref_inv_P[15] - ref_inv_P[7]) + \
+					  normal1[2] * (ref_inv_P[15] - ref_inv_P[11]);
+  // collect right-hand side
+  const float rhs = normal1[0] * (ref_inv_P[13] * row2 + ref_inv_P[14] - ref_inv_P[1] * row2 - ref_inv_P[2]) + \
+	  	  	  	    normal1[1] * (ref_inv_P[13] * row2 + ref_inv_P[14] - ref_inv_P[5] * row2 - ref_inv_P[6]) + \
+				    normal1[2] * (ref_inv_P[13] * row2 + ref_inv_P[14] - ref_inv_P[9] * row2 - ref_inv_P[10]);
 
-  // Intersection of the lines ((x1, y1), (x2, y2)) and ((x3, y3), (x4, y4)).
-  const float denom = x2 - x1 + x4 * (y1 - y2);
-  const float kEps = 1e-5f;
-  if (abs(denom) < kEps) {
-    return depth1;
+  float depth2 = coeff / rhs;
+
+  // double check the correctness
+  const float pixel2[3] = {0.0f, row2, depth2};
+  float point2[3] = {0.0f, 0.0f, 0.0f};
+  InverseProjection(ref_inv_P, pixel2, point2);
+  // if we deviate too much from point1, then there's some problem
+  if (EuclidDist(point1, point2) > abs(row2 - row1) * max_dist_per_pixel) {
+	  depth2 = depth1;
   }
-  const float nom = y1 * x2 - x1 * y2;
-  return nom / denom;
+
+  return depth2;
 }
 
 // First, compute triangulation angle between reference and source image for 3D
 // point. Second, compute incident angle between viewing direction of source
 // image and normal direction of 3D point. Both angles are cosine distances.
+// Note that both point and normal coordinates are in scene coordinate frame
 __device__ inline void ComputeViewingAngles(const float point[3],
                                             const float normal[3],
                                             const int image_idx,
@@ -242,28 +345,29 @@ __device__ inline void ComputeViewingAngles(const float point[3],
   *cos_incident_angle = 0.0f;
 
   // Projection center of source image.
-  float C[3];
+  // need to change here
+  float src_C[3];
   for (int i = 0; i < 3; ++i) {
-    C[i] = tex2D(poses_texture, i + 16, image_idx);
+    src_C[i] = tex2D(poses_texture, i + 16, image_idx);
   }
 
-  // Ray from point to camera.
-  const float SX[3] = {C[0] - point[0], C[1] - point[1], C[2] - point[2]};
+  // Ray from point to reference camera
+  const float RX[3] = {ref_C[0] - point[0], ref_C[1] - point[1], ref_C[2] - point[2]};
+  // Ray from point to source camera
+  const float SX[3] = {src_C[0] - point[0], src_C[1] - point[1], src_C[2] - point[2]};
 
   // Length of ray from reference image to point.
-  const float RX_inv_norm = rsqrt(DotProduct3(point, point));
+  const float RX_inv_norm = rsqrt(DotProduct3(RX, RX));
 
   // Length of ray from source image to point.
   const float SX_inv_norm = rsqrt(DotProduct3(SX, SX));
 
   *cos_incident_angle = DotProduct3(SX, normal) * SX_inv_norm;
-
-  // ?? seems there's a bug here
-  // it computes cos(\pi-\theta)=-cos\theta
-  // we invert it here
-  *cos_triangulation_angle = -DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
+  *cos_triangulation_angle = DotProduct3(RX, SX) * RX_inv_norm * SX_inv_norm;
 }
 
+// already numeric stable; however need to change the notion of depth
+// reference R, t
 __device__ inline void ComposeHomography(const int image_idx, const int row,
                                          const int col, const float depth,
                                          const float normal[3], float H[9]) {
@@ -285,19 +389,27 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
     T[i] = tex2D(poses_texture, i + 13, image_idx);
   }
 
-  // Distance to the plane.
-  const float dist =
-      depth * (normal[0] * (ref_inv_K[0] * col + ref_inv_K[1]) +
-               normal[1] * (ref_inv_K[2] * row + ref_inv_K[3]) + normal[2]);
+  const float pixel[3] = {col, row, depth};
+  float point[3];
+  InverseProjection(ref_inv_P, pixel, point);
+
+  // Distance from the projection center to the plane
+  // note that a plane is written as n^TX-d=0, with d>0
+  // normal vector should always point from the origin to the plane
+  const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
   const float inv_dist = 1.0f / dist;
 
-  const float inv_dist_N0 = inv_dist * normal[0];
-  const float inv_dist_N1 = inv_dist * normal[1];
-  const float inv_dist_N2 = inv_dist * normal[2];
+  // change the normal vector to the reference image camera
+  float normal_ref [3];
+  Mat33DotVec3(ref_R, normal, normal_ref);
+
+  const float inv_dist_N0 = inv_dist * normal_ref[0];
+  const float inv_dist_N1 = inv_dist * normal_ref[1];
+  const float inv_dist_N2 = inv_dist * normal_ref[2];
 
   // Homography as H = K * (R - T * n' / d) * Kref^-1.
   H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-                         K[1] * (R[6] + inv_dist_N0 * T[2]));
+		  K[1] * (R[6] + inv_dist_N0 * T[2]));
   H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
                          K[1] * (R[7] + inv_dist_N1 * T[2]));
   H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
@@ -456,19 +568,21 @@ struct PhotoConsistencyCostComputer {
   const BilateralWeightComputer bilateral_weight_computer_;
 };
 
+// important
 __device__ inline float ComputeGeomConsistencyCost(const float row,
                                                    const float col,
                                                    const float depth,
                                                    const int image_idx,
                                                    const float max_cost) {
   // Extract projection matrices for source image.
-  float P[12];
-  for (int i = 0; i < 12; ++i) {
+  // todo: need to modify here; the projection matrices is 4 by 4 now
+  float P[16];
+  for (int i = 0; i < 16; ++i) {
     P[i] = tex2D(poses_texture, i + 19, image_idx);
   }
-  float inv_P[12];
-  for (int i = 0; i < 12; ++i) {
-    inv_P[i] = tex2D(poses_texture, i + 31, image_idx);
+  float inv_P[16];
+  for (int i = 0; i < 16; ++i) {
+    inv_P[i] = tex2D(poses_texture, i + 35, image_idx);
   }
 
   // Project point in reference image to world.
@@ -476,19 +590,12 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
   ComputePointAtDepth(row, col, depth, forward_point);
 
   // Project world point to source image.
-  const float inv_forward_z =
-      1.0f / (P[8] * forward_point[0] + P[9] * forward_point[1] +
-              P[10] * forward_point[2] + P[11]);
-  float src_col =
-      inv_forward_z * (P[0] * forward_point[0] + P[1] * forward_point[1] +
-                       P[2] * forward_point[2] + P[3]);
-  float src_row =
-      inv_forward_z * (P[4] * forward_point[0] + P[5] * forward_point[1] +
-                       P[6] * forward_point[2] + P[7]);
+  float src_pixel[2];
+  Projection(P, forward_point, src_pixel);
 
   // Extract depth in source image.
-  const float src_depth = tex2DLayered(src_depth_maps_texture, src_col + 0.5f,
-                                       src_row + 0.5f, image_idx);
+  const float src_depth = tex2DLayered(src_depth_maps_texture, src_pixel[0] + 0.5f,
+                                       src_pixel[1] + 0.5f, image_idx);
 
   // Projection outside of source image.
   if (src_depth == 0.0f) {
@@ -496,28 +603,17 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
   }
 
   // Project point in source image to world.
-  src_col *= src_depth;
-  src_row *= src_depth;
-  const float backward_point_x =
-      inv_P[0] * src_col + inv_P[1] * src_row + inv_P[2] * src_depth + inv_P[3];
-  const float backward_point_y =
-      inv_P[4] * src_col + inv_P[5] * src_row + inv_P[6] * src_depth + inv_P[7];
-  const float backward_point_z = inv_P[8] * src_col + inv_P[9] * src_row +
-                                 inv_P[10] * src_depth + inv_P[11];
-  const float inv_backward_point_z = 1.0f / backward_point_z;
+  float backward_point[3];
+  const float src_pixel_depth[3] = {src_pixel[0], src_pixel[1], src_depth};
+  InverseProjection(inv_P, src_pixel_depth, backward_point);
 
   // Project world point back to reference image.
-  const float backward_col =
-      inv_backward_point_z *
-      (ref_K[0] * backward_point_x + ref_K[1] * backward_point_z);
-  const float backward_row =
-      inv_backward_point_z *
-      (ref_K[2] * backward_point_y + ref_K[3] * backward_point_z);
-
+  float ref_pixel[2];
+  Projection(ref_P, backward_point, ref_pixel);
   // Return truncated reprojection error between original observation and
   // the forward-backward projected observation.
-  const float diff_col = col - backward_col;
-  const float diff_row = row - backward_row;
+  const float diff_col = col - ref_pixel[0];
+  const float diff_row = row - ref_pixel[1];
   return min(max_cost, sqrt(diff_col * diff_col + diff_row * diff_row));
 }
 
@@ -670,16 +766,16 @@ class LikelihoodComputer {
     // Warp corners of patch in reference image to source image.
     float src1[2];
     const float ref1[2] = {col - kWindowRadius, row - kWindowRadius};
-    Mat33DotVec3Homogeneous(H, ref1, src1);
+    HomographyWarp(H, ref1, src1);
     float src2[2];
     const float ref2[2] = {col - kWindowRadius, row + kWindowRadius};
-    Mat33DotVec3Homogeneous(H, ref2, src2);
+    HomographyWarp(H, ref2, src2);
     float src3[2];
     const float ref3[2] = {col + kWindowRadius, row + kWindowRadius};
-    Mat33DotVec3Homogeneous(H, ref3, src3);
+    HomographyWarp(H, ref3, src3);
     float src4[2];
     const float ref4[2] = {col + kWindowRadius, row - kWindowRadius};
-    Mat33DotVec3Homogeneous(H, ref4, src4);
+    HomographyWarp(H, ref4, src4);
 
     // Compute area of patches in reference and source image.
     const float ref_area = kWindowSize * kWindowSize;
@@ -1505,6 +1601,7 @@ void PatchMatchCuda::InitSourceImages() {
   }
 }
 
+// very important
 void PatchMatchCuda::InitTransforms() {
   const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
 
@@ -1512,26 +1609,9 @@ void PatchMatchCuda::InitTransforms() {
   // Generate rotated versions (counter-clockwise) of calibration matrix.
   //////////////////////////////////////////////////////////////////////////////
 
-  for (size_t i = 0; i < 4; ++i) {
-    ref_K_host_[i][0] = ref_image.GetK()[0];
-    ref_K_host_[i][1] = ref_image.GetK()[2];
-    ref_K_host_[i][2] = ref_image.GetK()[4];
-    ref_K_host_[i][3] = ref_image.GetK()[5];
+  for (int i = 0; i < 4; ++i) {
+	ref_image.Rotate90Multi(i, ref_K_host_[i], ref_R_host_[i], ref_T_host_[i], ref_P_host_[i], ref_inv_P_host_[i], ref_C_host_);
   }
-
-  // Rotated by 90 degrees.
-  std::swap(ref_K_host_[1][0], ref_K_host_[1][2]);
-  std::swap(ref_K_host_[1][1], ref_K_host_[1][3]);
-  ref_K_host_[1][3] = ref_width_ - 1 - ref_K_host_[1][3];
-
-  // Rotated by 180 degrees.
-  ref_K_host_[2][1] = ref_width_ - 1 - ref_K_host_[2][1];
-  ref_K_host_[2][3] = ref_height_ - 1 - ref_K_host_[2][3];
-
-  // Rotated by 270 degrees.
-  std::swap(ref_K_host_[3][0], ref_K_host_[3][2]);
-  std::swap(ref_K_host_[3][1], ref_K_host_[3][3]);
-  ref_K_host_[3][1] = ref_height_ - 1 - ref_K_host_[3][1];
 
   // Extract 1/fx, -cx/fx, fy, -cy/fy.
   for (size_t i = 0; i < 4; ++i) {
@@ -1547,63 +1627,58 @@ void PatchMatchCuda::InitTransforms() {
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_inv_K, ref_inv_K_host_[0],
                                     sizeof(float) * 4, 0,
                                     cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_R, ref_R_host_[0], sizeof(float) * 9, 0,
+                                    cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_T, ref_T_host_[0],
+                                    sizeof(float) * 3, 0,
+                                    cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_P, ref_P_host_[0],
+                                    sizeof(float) * 16, 0,
+                                    cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_inv_P, ref_inv_P_host_[0],
+                                    sizeof(float) * 16, 0,
+                                    cudaMemcpyHostToDevice));
 
   //////////////////////////////////////////////////////////////////////////////
   // Generate rotated versions of camera poses.
   //////////////////////////////////////////////////////////////////////////////
-
-  float rotated_R[9];
-  memcpy(rotated_R, ref_image.GetR(), 9 * sizeof(float));
-
-  float rotated_T[3];
-  memcpy(rotated_T, ref_image.GetT(), 3 * sizeof(float));
-
-  // Matrix for 90deg rotation around Z-axis in counter-clockwise direction.
-  const float R_z90[9] = {0, 1, 0, -1, 0, 0, 0, 0, 1};
-
   for (size_t i = 0; i < 4; ++i) {
-    const size_t kNumTformParams = 4 + 9 + 3 + 3 + 12 + 12;
+    const size_t kNumTformParams = 4 + 9 + 3 + 3 + 16 + 16;
     std::vector<float> poses_host_data(kNumTformParams *
                                        problem_.src_image_idxs.size());
     int offset = 0;
+
     for (const auto image_idx : problem_.src_image_idxs) {
       const Image& image = problem_.images->at(image_idx);
 
-      const float K[4] = {image.GetK()[0], image.GetK()[2], image.GetK()[4],
-                          image.GetK()[5]};
+      float K_full[9];
+      float R[9];
+      float T[3];
+      float P[16];
+      float inv_P[16];
+      float C[3];
+      image.Original(K_full, R, T, P, inv_P, C);
+      const float K[4] = {K_full[0], K_full[2], K_full[4], K_full[5]};
       memcpy(poses_host_data.data() + offset, K, 4 * sizeof(float));
       offset += 4;
-
-      float rel_R[9];
+      float rel_R[9]; // only for computing homography
       float rel_T[3];
-      ComputeRelativePose(rotated_R, rotated_T, image.GetR(), image.GetT(),
-                          rel_R, rel_T);
+      ComputeRelativePose(ref_R_host_[i], ref_T_host_[i], R, T, rel_R, rel_T);
       memcpy(poses_host_data.data() + offset, rel_R, 9 * sizeof(float));
       offset += 9;
       memcpy(poses_host_data.data() + offset, rel_T, 3 * sizeof(float));
       offset += 3;
-
-      float C[3];
-      ComputeProjectionCenter(rel_R, rel_T, C);
       memcpy(poses_host_data.data() + offset, C, 3 * sizeof(float));
       offset += 3;
-
-      float P[12];
-      ComposeProjectionMatrix(image.GetK(), rel_R, rel_T, P);
-      memcpy(poses_host_data.data() + offset, P, 12 * sizeof(float));
-      offset += 12;
-
-      float inv_P[12];
-      ComposeInverseProjectionMatrix(image.GetK(), rel_R, rel_T, inv_P);
-      memcpy(poses_host_data.data() + offset, inv_P, 12 * sizeof(float));
-      offset += 12;
+      memcpy(poses_host_data.data() + offset, P, 16 * sizeof(float));
+      offset += 16;
+      memcpy(poses_host_data.data() + offset, inv_P, 16 * sizeof(float));
+      offset += 16;
     }
 
     poses_device_[i].reset(new CudaArrayWrapper<float>(
         kNumTformParams, problem_.src_image_idxs.size(), 1));
     poses_device_[i]->CopyToDevice(poses_host_data.data());
-
-    RotatePose(R_z90, rotated_R, rotated_T);
   }
 
   poses_texture.addressMode[0] = cudaAddressModeBorder;
@@ -1611,8 +1686,7 @@ void PatchMatchCuda::InitTransforms() {
   poses_texture.addressMode[2] = cudaAddressModeBorder;
   poses_texture.filterMode = cudaFilterModePoint;
   poses_texture.normalized = false;
-  CUDA_SAFE_CALL(
-      cudaBindTextureToArray(poses_texture, poses_device_[0]->GetPtr()));
+  CUDA_SAFE_CALL(cudaBindTextureToArray(poses_texture, poses_device_[0]->GetPtr()));
 }
 
 void PatchMatchCuda::InitWorkspaceMemory() {
@@ -1748,6 +1822,14 @@ void PatchMatchCuda::Rotate() {
   CUDA_SAFE_CALL(
       cudaMemcpyToSymbol(ref_inv_K, ref_inv_K_host_[rotation_in_half_pi_],
                          sizeof(float) * 4, 0, cudaMemcpyHostToDevice));
+
+  // Rotate Projection Matrix
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_P, ref_P_host_[rotation_in_half_pi_],
+                                    sizeof(float) * 16, 0,
+                                    cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_inv_P, ref_inv_P_host_[rotation_in_half_pi_],
+                                    sizeof(float) * 16, 0,
+                                    cudaMemcpyHostToDevice));
 
   // Recompute Cuda configuration for rotated reference image.
   ComputeCudaConfig();

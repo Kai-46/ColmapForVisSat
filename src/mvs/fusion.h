@@ -123,9 +123,11 @@ class StereoFusion : public Thread {
   std::vector<Mat<bool>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
-  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
-  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
-  std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
+  // change to 4 by 4 projection matrices
+  std::vector<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>> P_;
+  std::vector<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>> inv_P_;
+  // no need to use inv_R_ as the normal is already in scene coordinate frame
+  //std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
   struct FusionData {
     int image_idx = kInvalidImageId;

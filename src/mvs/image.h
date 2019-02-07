@@ -39,16 +39,22 @@
 #include <unordered_map>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include "util/bitmap.h"
 
 namespace colmap {
 namespace mvs {
 
+// save high-precision matrices internally
+// while output low-precision to be used in MVS
 class Image {
  public:
-  Image();
-  Image(const std::string& path, const size_t width, const size_t height,
-        const float* K, const float* R, const float* T);
+//  Image();
+  // if not passing P and inv_P, then they're automatically induced from K, R, t
+  // in some cases, this might not be appropriate, as you might need to compute P and inv_P with high precision
+  explicit Image(const std::string& path, const size_t width, const size_t height,
+        const double K[9], const double R[9], const double T[3]);
 
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
@@ -56,67 +62,58 @@ class Image {
   void SetBitmap(const Bitmap& bitmap);
   inline const Bitmap& GetBitmap() const;
 
+  void SetLastRow(const double last_row[4]);
+  inline const double *GetLastRow() const;
+
+  void SetK(const double K[9]);
+
   inline const std::string& GetPath() const;
-  inline const float* GetR() const;
-  inline const float* GetT() const;
-  inline const float* GetK() const;
-  inline const float* GetP() const;
-  inline const float* GetInvP() const;
-  inline const float* GetViewingDirection() const;
 
   void Rescale(const float factor);
   void Rescale(const float factor_x, const float factor_y);
   void Downsize(const size_t max_width, const size_t max_height);
 
+  // high-precision output
+  inline void GetCDouble(double C[3]);
+  inline void GetKDouble(double K[9]);
+
+  // low-precision output
+  inline float GetDepth(double x, double y, double z);
+  inline void GetK(float K[9]);
+  inline void GetRT(float R[9],  float T[3]);
+  inline void GetC(float C[3]);
+  inline void GetPinvP(float P[16], float inv_P[16]);
+  inline void Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]);
+  inline void Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]);
+  inline void Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]);
+  inline void Rotate180(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]);
+  inline void Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]);
+
  private:
   std::string path_;
   size_t width_;
   size_t height_;
-  float K_[9];
-  float R_[9];
-  float T_[3];
-  float P_[12];
-  float inv_P_[12];
+  double K_[9];
+  double R_[9];
+  double T_[3];
+  double last_row_[4] = {0., 0., 0., 1.};	// last row of the 4 by 4 projection matrix, default value
   Bitmap bitmap_;
 };
 
+// only useful to estimate homography
 void ComputeRelativePose(const float R1[9], const float T1[3],
                          const float R2[9], const float T2[3], float R[9],
-                         float T[3]);
+                         float T[3]) {
+  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R1_m(R1);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R2_m(R2);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T1_m(T1);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T2_m(T2);
+  Eigen::Map<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R_m(R);
+  Eigen::Map<Eigen::Vector3f> T_m(T);
 
-void ComposeProjectionMatrix(const float K[9], const float R[9],
-                             const float T[3], float P[12]);
-
-void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
-                                    const float T[3], float inv_P[12]);
-
-void ComputeProjectionCenter(const float R[9], const float T[3], float C[3]);
-
-void RotatePose(const float RR[9], float R[9], float T[3]);
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-size_t Image::GetWidth() const { return width_; }
-
-size_t Image::GetHeight() const { return height_; }
-
-const Bitmap& Image::GetBitmap() const { return bitmap_; }
-
-const std::string& Image::GetPath() const { return path_; }
-
-const float* Image::GetR() const { return R_; }
-
-const float* Image::GetT() const { return T_; }
-
-const float* Image::GetK() const { return K_; }
-
-const float* Image::GetP() const { return P_; }
-
-const float* Image::GetInvP() const { return inv_P_; }
-
-const float* Image::GetViewingDirection() const { return &R_[6]; }
+  R_m = R2_m * R1_m.transpose();
+  T_m = T2_m - R_m * T1_m;
+}
 
 }  // namespace mvs
 }  // namespace colmap
