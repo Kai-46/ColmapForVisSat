@@ -825,20 +825,23 @@ __global__ void InitNormalMap(GpuMat<float> normal_map,
   }
 }
 
+// no need to rotate normal map now
+
 // Rotate normals by 90deg around z-axis in counter-clockwise direction.
-__global__ void RotateNormalMap(GpuMat<float> normal_map) {
-  const int row = blockDim.y * blockIdx.y + threadIdx.y;
-  const int col = blockDim.x * blockIdx.x + threadIdx.x;
-  if (col < normal_map.GetWidth() && row < normal_map.GetHeight()) {
-    float normal[3];
-    normal_map.GetSlice(row, col, normal);
-    float rotated_normal[3];
-    rotated_normal[0] = normal[1];
-    rotated_normal[1] = -normal[0];
-    rotated_normal[2] = normal[2];
-    normal_map.SetSlice(row, col, rotated_normal);
-  }
-}
+//__global__ void RotateNormalMap(GpuMat<float> normal_map) {
+//  const int row = blockDim.y * blockIdx.y + threadIdx.y;
+//  const int col = blockDim.x * blockIdx.x + threadIdx.x;
+//  if (col < normal_map.GetWidth() && row < normal_map.GetHeight()) {
+//    float normal[3];
+//    normal_map.GetSlice(row, col, normal);
+//    float rotated_normal[3];
+//    rotated_normal[0] = normal[1];
+//    rotated_normal[1] = -normal[0];
+//    rotated_normal[2] = normal[2];
+//    normal_map.SetSlice(row, col, rotated_normal);
+//  }
+//}
+
 
 template <int kWindowSize, int kWindowStep>
 __global__ void ComputeInitialCost(GpuMat<float> cost_map,
@@ -1192,7 +1195,7 @@ __global__ void SweepFromTopToBottom(
       }
 
       if (num_consistent < options.filter_min_num_consistent) {
-        const float kFilterValue = 0.0f;
+        const float kFilterValue = -1e20f;  // change to an absurd value
         depth_map.Set(row, col, kFilterValue);
         normal_map.Set(row, col, 0, kFilterValue);
         normal_map.Set(row, col, 1, kFilterValue);
@@ -1644,7 +1647,7 @@ void PatchMatchCuda::InitTransforms() {
       float inv_P[16];
       float C[3];
       image.Original(K_full, R, T, P, inv_P, C);
-      const float K[4] = {K_full[0], K_full[2], K_full[4], K_full[5]};
+      const float K[4] = {K_full[0], K_full[2], K_full[4], K_full[5]}; // fx, cx, fy, cy
       memcpy(poses_host_data + offset, K, 4 * sizeof(float));
       offset += 4;
       float rel_R[9]; // only for computing homography
@@ -1755,8 +1758,8 @@ void PatchMatchCuda::Rotate() {
 
   // Rotate normal map.
   {
-    RotateNormalMap<<<elem_wise_grid_size_, elem_wise_block_size_>>>(
-        *normal_map_);
+//    RotateNormalMap<<<elem_wise_grid_size_, elem_wise_block_size_>>>(
+//        *normal_map_);
     std::unique_ptr<GpuMat<float>> rotated_normal_map(
         new GpuMat<float>(width, height, 3));
     normal_map_->Rotate(rotated_normal_map.get());
@@ -1798,8 +1801,7 @@ void PatchMatchCuda::Rotate() {
 
   // Rotate transformations from source image to reference image
   CUDA_SAFE_CALL(cudaUnbindTexture(poses_texture));
-  CUDA_SAFE_CALL(cudaBindTextureToArray(
-      poses_texture, poses_device_[rotation_in_half_pi_]->GetPtr()));
+  CUDA_SAFE_CALL(cudaBindTextureToArray(poses_texture, poses_device_[rotation_in_half_pi_]->GetPtr()));
 
   // Rotate calibration.
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_K, ref_K_host_[rotation_in_half_pi_],
@@ -1812,10 +1814,10 @@ void PatchMatchCuda::Rotate() {
   // Rotate extrinsics
   CUDA_SAFE_CALL(
       cudaMemcpyToSymbol(ref_R, ref_R_host_[rotation_in_half_pi_],
-                         sizeof(float) * 4, 0, cudaMemcpyHostToDevice));
+                         sizeof(float) * 9, 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(
       cudaMemcpyToSymbol(ref_T, ref_T_host_[rotation_in_half_pi_],
-                         sizeof(float) * 4, 0, cudaMemcpyHostToDevice));
+                         sizeof(float) * 3, 0, cudaMemcpyHostToDevice));
 
   // Rotate Projection Matrix
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_P, ref_P_host_[rotation_in_half_pi_],
