@@ -83,7 +83,7 @@ __constant__ float ref_P[16];
 __constant__ float ref_inv_P[16];
 
 // minimum spatial resolution of these images
-__constant__ float max_dist_per_pixel;
+__constant__ float max_dist_per_pixel[1];
 
 
 // homography
@@ -305,7 +305,7 @@ __device__ inline float PropagateDepth(const float depth1,
   float point2[3];
   ComputePointAtDepth(row2, 0.0f, depth2, point2);
   // if we deviate too much from point1, then there's some problem
-  if (EuclidDist(point1, point2) > abs(row2 - row1) * max_dist_per_pixel) {
+  if (EuclidDist(point1, point2) > abs(row2 - row1) * max_dist_per_pixel[0]) {
 	  depth2 = depth1;
   }
 
@@ -1603,7 +1603,7 @@ void PatchMatchCuda::InitTransforms() {
 
   // copy
   //max_dist_per_pixel = max_dist_per_pixel_host_;
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(&max_dist_per_pixel, &max_dist_per_pixel_host_, sizeof(float), 0,
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(max_dist_per_pixel, &max_dist_per_pixel_host_, sizeof(float), 0,
                                     cudaMemcpyHostToDevice));
   // copy
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_C, ref_C_host_, sizeof(float) * 3, 0, cudaMemcpyHostToDevice));

@@ -245,7 +245,7 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
     depth_range.first -= stretch;
     depth_range.second += stretch;
     
-    std::cout << "image id: " << image_idx << "depth range: " << depth_range.first << ", " << depth_range.second << std::endl;
+    std::cout << "image id: " << image_idx << " depth range: " << depth_range.first << ", " << depth_range.second << std::endl;
   }
 
   return depth_ranges;
