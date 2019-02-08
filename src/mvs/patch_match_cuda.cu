@@ -298,7 +298,7 @@ __device__ inline float PropagateDepth(const float depth1,
   const float rhs =-( normal1[0] * (point1[0] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[1] * row2 - ref_inv_P[2]) + \
 	  	  	  	    normal1[1] * (point1[1] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[5] * row2 - ref_inv_P[6]) + \
 				    normal1[2] * (point1[2] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[9] * row2 - ref_inv_P[10]) );
-
+  // depth is the inverse of the fourth component
   float depth2 = coeff / rhs;
 
   // double check the correctness
@@ -1796,7 +1796,7 @@ void PatchMatchCuda::Rotate() {
     cost_map_.swap(rotated_cost_map);
   }
 
-  // Rotate transformations.
+  // Rotate transformations from source image to reference image
   CUDA_SAFE_CALL(cudaUnbindTexture(poses_texture));
   CUDA_SAFE_CALL(cudaBindTextureToArray(
       poses_texture, poses_device_[rotation_in_half_pi_]->GetPtr()));

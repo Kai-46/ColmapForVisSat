@@ -98,7 +98,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   }
 
   // free memory
-  for (std::map<std::string, double *>::iterator it=last_rows.begin(); it!=last_rows.end(); ++it) {
+  for (std::map<std::string, double *>::iterator it=last_rows.begin(); it != last_rows.end(); ++it) {
 	  delete [] it->second;
   }
 
@@ -204,9 +204,9 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
       const auto& image = images.at(image_idx);
       // make sure single-precision is enough for depth
       const float depth = image.GetDepth(point.x, point.y, point.z);
-      if (depth > 0) {
-        depths[image_idx].push_back(depth);
-      }
+//      if (depth > 0) {
+      depths[image_idx].push_back(depth);
+//      }
     }
   }
 
@@ -217,8 +217,9 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
     auto& image_depths = depths[image_idx];
 
     if (image_depths.empty()) {
-      depth_range.first = -1.0f;
-      depth_range.second = -1.0f;
+      // set to an absurd value
+      depth_range.first = -1e20f;
+      depth_range.second = -1e20f;
       continue;
     }
 
