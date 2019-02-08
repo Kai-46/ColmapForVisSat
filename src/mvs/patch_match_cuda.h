@@ -128,7 +128,7 @@ class PatchMatchCuda {
   // Projection center of the reference image in scene coordinate frame
   // rotation does not affect the projection center
   float ref_C_host_[3];
-  float max_dist_per_pixel;
+  float max_dist_per_pixel_host_ = 0.5; // 0.5 meters
 
   // Projection matrix and inverse projection matrix for rotated versions of reference image
   float ref_P_host_[4][16];

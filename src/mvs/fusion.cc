@@ -145,10 +145,10 @@ void StereoFusion::Run() {
 
   auto workspace_format_lower_case = workspace_format_;
   StringToLower(&workspace_format_lower_case);
-  if (workspace_format_lower_case == "pmvs") {
-    workspace_options.stereo_folder =
-        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
-  }
+//  if (workspace_format_lower_case == "pmvs") {
+//    workspace_options.stereo_folder =
+//        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
+//  }
 
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = true;
@@ -169,12 +169,12 @@ void StereoFusion::Run() {
   const auto& model = workspace_->GetModel();
 
   const double kMinTriangulationAngle = 0;
-  if (model.GetMaxOverlappingImagesFromPMVS().empty()) {
+//  if (model.GetMaxOverlappingImagesFromPMVS().empty()) {
     overlapping_images_ = model.GetMaxOverlappingImages(
         options_.check_num_images, kMinTriangulationAngle);
-  } else {
-    overlapping_images_ = model.GetMaxOverlappingImagesFromPMVS();
-  }
+//  } else {
+//    overlapping_images_ = model.GetMaxOverlappingImagesFromPMVS();
+//  }
 
   used_images_.resize(model.images.size(), false);
   fused_images_.resize(model.images.size(), false);
@@ -183,7 +183,6 @@ void StereoFusion::Run() {
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
-  inv_R_.resize(model.images.size());
 
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
@@ -217,14 +216,14 @@ void StereoFusion::Run() {
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
         static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
 
-    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K =
-        Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(image.GetK());
-    K(0, 0) *= bitmap_scales_.at(image_idx).first;
-    K(0, 2) *= bitmap_scales_.at(image_idx).first;
-    K(1, 1) *= bitmap_scales_.at(image_idx).second;
-    K(1, 2) *= bitmap_scales_.at(image_idx).second;
+    double K[9];
+    image.GetKDouble(K);
+    K[0] *= bitmap_scales_.at(image_idx).first; // fx
+    K[2] *= bitmap_scales_.at(image_idx).first; // cx
+    K[4] *= bitmap_scales_.at(image_idx).second; // fy
+    K[5] *= bitmap_scales_.at(image_idx).second; // cy
     // pass back to image
-    image.SetK(K.data());
+    image.SetK(K);
     image.GetPinvP(P_.at(image_idx).data(), inv_P_.at(image_idx).data());
   }
 
@@ -320,8 +319,8 @@ void StereoFusion::Fuse() {
     const auto& depth_map = workspace_->GetDepthMap(image_idx);
     const float depth = depth_map.Get(row, col);
 
-    // Pixels with negative depth are filtered.
-    if (depth <= 0.0f) {
+    // Pixels with absurd value are filtered
+    if (depth <= -1e19f) {
       continue;
     }
 
@@ -332,7 +331,8 @@ void StereoFusion::Fuse() {
       const Eigen::Vector4f proj = P_.at(image_idx) * fused_ref_point;
 
       // Depth error of reference depth with current depth.
-      const float depth_error = std::abs((proj(3)/proj(2) - depth) / depth);
+      // Depth is the inverse of the fourth component
+      const float depth_error = std::abs((proj(2)/proj(3) - depth) / depth);
       if (depth_error > options_.max_depth_error) {
         continue;
       }
@@ -418,7 +418,7 @@ void StereoFusion::Fuse() {
 
       next_data.image_idx = next_image_idx;
 
-      const Eigen::Vector3f next_proj =
+      const Eigen::Vector4f next_proj =
           P_.at(next_image_idx) * xyz.homogeneous();
       next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
       next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));

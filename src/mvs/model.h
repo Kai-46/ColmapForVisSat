@@ -59,7 +59,7 @@ struct Model {
   // Read the model from different data formats.
   void Read(const std::string& path, const std::string& format);
   void ReadFromCOLMAP(const std::string& path);
-  void ReadFromPMVS(const std::string& path);
+//  void ReadFromPMVS(const std::string& path);
 
   // Get the image index for the given image name.
   int GetImageIdx(const std::string& name) const;
@@ -93,13 +93,13 @@ struct Model {
   std::vector<Point> points;
 
  private:
-  bool ReadFromBundlerPMVS(const std::string& path);
-  bool ReadFromRawPMVS(const std::string& path);
+//  bool ReadFromBundlerPMVS(const std::string& path);
+//  bool ReadFromRawPMVS(const std::string& path);
 
   std::vector<std::string> image_names_;
   std::unordered_map<std::string, int> image_name_to_idx_;
 
-  std::vector<std::vector<int>> pmvs_vis_dat_;
+//  std::vector<std::vector<int>> pmvs_vis_dat_;
 };
 
 }  // namespace mvs

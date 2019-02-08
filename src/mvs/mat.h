@@ -82,12 +82,17 @@ class Mat {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-Mat<T>::Mat() : Mat(0, 0, 0) {}
+Mat<T>::Mat() : Mat(0, 0, 0) {
+	// initialize to an absurd value
+//	Fill(-1e20f);
+}
 
 template <typename T>
 Mat<T>::Mat(const size_t width, const size_t height, const size_t depth)
     : width_(width), height_(height), depth_(depth) {
   data_.resize(width_ * height_ * depth_, 0);
+  // initialize to an absurd value
+//  Fill(-1e20f);
 }
 
 template <typename T>

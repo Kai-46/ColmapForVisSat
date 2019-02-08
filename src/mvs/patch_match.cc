@@ -130,11 +130,13 @@ void PatchMatch::Check() const {
     CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
+    float K[9];
+    image.GetK(K);
+    CHECK_LT(std::abs(K[1] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(K[3] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(K[6] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(K[7] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(K[8] - 1.0f), 1e-6f) << image_idx;
 
     if (options_.geom_consistency) {
       CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
@@ -231,10 +233,10 @@ void PatchMatchController::ReadWorkspace() {
 
   auto workspace_format_lower_case = workspace_format_;
   StringToLower(&workspace_format_lower_case);
-  if (workspace_format_lower_case == "pmvs") {
-    workspace_options.stereo_folder =
-        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
-  }
+//  if (workspace_format_lower_case == "pmvs") {
+//    workspace_options.stereo_folder =
+//        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
+//  }
 
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = false;
@@ -245,12 +247,12 @@ void PatchMatchController::ReadWorkspace() {
 
   workspace_.reset(new Workspace(workspace_options));
 
-  if (workspace_format_lower_case == "pmvs") {
-    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
-                              pmvs_option_name_.c_str())
-              << std::endl;
-    ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
-  }
+//  if (workspace_format_lower_case == "pmvs") {
+//    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
+//                              pmvs_option_name_.c_str())
+//              << std::endl;
+//    ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
+//  }
 
   depth_ranges_ = workspace_->GetModel().ComputeDepthRanges();
 }

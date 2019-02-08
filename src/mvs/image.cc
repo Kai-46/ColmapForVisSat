@@ -48,13 +48,13 @@ inline void Compute4by4ProjectionMatrix(const double K[9],
 	  // 3 by 4 projection matrix
 	  Eigen::Matrix<double, 3, 4, Eigen::RowMajor> P_3by4;
 	  P_3by4.leftCols<3>() = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R);
-	  P_3by4.rightCols<1>() = Eigen::Map<const Eigen::Matrix<double, 3, 1, Eigen::RowMajor>>(T);
+	  P_3by4.rightCols<1>() = Eigen::Map<const Eigen::Matrix<double, 3, 1>>(T);
 	  P_3by4 = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(K) * P_3by4;
 
 	  // 4 by 4 projection matrix
 	  Eigen::Matrix<double, 4, 4, Eigen::RowMajor> P_4by4;
 	  P_4by4.block<3, 4>(0, 0) = P_3by4;
-	  P_4by4.row(3) = Eigen::Map<const Eigen::Matrix<double, 1, 4, Eigen::RowMajor>>(last_row);
+	  P_4by4.row(3) = Eigen::Map<const Eigen::Matrix<double, 1, 4>>(last_row);
 
 	  // try to make the projection matrix more numerically stable
 	  // scale all the numbers to lie in [0, 10]
@@ -72,8 +72,8 @@ inline void ComputeProjectionCenter(const double R[9], const double T[9],
 									double C[3]) {
 	  // 3 by 4 projection matrix
 	  Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R_mat(R);
-	  Eigen::Map<const Eigen::Matrix<double, 3, 1, Eigen::RowMajor>> T_mat(T);
-	  const Eigen::Matrix<double, 3, 1, Eigen::RowMajor> C_mat = -R_mat.transpose() * T_mat;
+	  Eigen::Map<const Eigen::Matrix<double, 3, 1>> T_mat(T);
+	  const Eigen::Matrix<double, 3, 1> C_mat = -R_mat.transpose() * T_mat;
 
 	  memcpy(C, C_mat.data(), 3 * sizeof(double));
 }
@@ -101,14 +101,9 @@ void Image::SetBitmap(const Bitmap& bitmap) {
 }
 
 
-void Image::SetK(const double K[9]) {
+void Image::SetK(const double K[9]) const {
 	memcpy(K_, K, 9 * sizeof(double));
 }
-
-const double* Image::GetInternalK() {
-	return K_;
-}
-
 
 size_t Image::GetWidth() const { return width_; }
 
@@ -123,21 +118,21 @@ void Image::SetLastRow(const double last_row[4]) {
   memcpy(last_row_, last_row, 4 * sizeof(double));
 }
 
-float Image::GetDepth(double x, double y, double z) {
+float Image::GetDepth(double x, double y, double z) const {
 	  // 3 by 4 projection matrix
 	  Eigen::Matrix<double, 3, 4, Eigen::RowMajor> P_3by4;
 	  P_3by4.leftCols<3>() = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(R_);
-	  P_3by4.rightCols<1>() = Eigen::Map<const Eigen::Matrix<double, 3, 1, Eigen::RowMajor>>(T_);
+	  P_3by4.rightCols<1>() = Eigen::Map<const Eigen::Matrix<double, 3, 1>>(T_);
 	  P_3by4 = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(K_) * P_3by4;
 
 	  // 4 by 4 projection matrix
 	  Eigen::Matrix<double, 4, 4, Eigen::RowMajor> P_4by4;
 	  P_4by4.block<3, 4>(0, 0) = P_3by4;
-	  P_4by4.row(3) = Eigen::Map<const Eigen::Matrix<double, 1, 4, Eigen::RowMajor>>(last_row_);
+	  P_4by4.row(3) = Eigen::Map<const Eigen::Matrix<double, 1, 4>>(last_row_);
 
-	  const Eigen::Matrix<double, 4, 1, Eigen::RowMajor> X(x, y, z, 1.0);
+	  const Eigen::Matrix<double, 4, 1> X(x, y, z, 1.0);
 
-	  Eigen::Matrix<double, 4, 1, Eigen::RowMajor> result = P_4by4 * X;
+	  Eigen::Matrix<double, 4, 1> result = P_4by4 * X;
 	  // inverse of the fourth component
 	  double depth = result[2] / result[3];
 
@@ -149,31 +144,43 @@ const double* Image::GetLastRow() const {
 	return last_row_;
 }
 
-void Image::GetK(float K[9]) {
+void Image::GetK(float K[9]) const {
 	DoubleArrToFloatArr(K_, K, 9);
 }
 
-void Image::GetRT(float R[9],  float T[3]) {
+void Image::GetRT(float R[9],  float T[3]) const {
 	DoubleArrToFloatArr(R_, R, 9);
 	DoubleArrToFloatArr(T_, T, 3);
 }
 
-void Image::GetC(float C[3]) {
+void Image::GetC(float C[3]) const {
 	double C_double[3];
 	ComputeProjectionCenter(R_, T_, C_double);
 	DoubleArrToFloatArr(C_double, C, 3);
 }
 
-void Image::GetCDouble(double C[3]) {
+void Image::GetCDouble(double C[3]) const {
 	ComputeProjectionCenter(R_, T_, C);
 }
 
 
-void Image::GetKDouble(double K[9]) {
+void Image::GetKDouble(double K[9]) const {
 	memcpy(K, K_, 9*sizeof(double));
 }
+
+void Image::GetPinvP(float P[16], float inv_P[16]) const {
+	// compute projection matrix
+	double P_double[16];
+	double inv_P_double[16];
+	Compute4by4ProjectionMatrix(K_, R_, T_, last_row_, P_double, inv_P_double);
+
+	// convert to low-precision
+	DoubleArrToFloatArr(P_double, P, 16);
+	DoubleArrToFloatArr(inv_P_double, inv_P, 16);
+}
+
 // low-precision output
-void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) {
+void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const{
 	// compute projection matrix
 	double P_double[16];
 	double inv_P_double[16];
@@ -191,7 +198,7 @@ void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_
 	DoubleArrToFloatArr(C_double, C, 3);
 }
 
-inline void Image::Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) {
+void Image::Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	switch (cnt % 4) {
 	case 0:
 		Original(K, R, T, P, inv_P, C);
@@ -210,7 +217,7 @@ inline void Image::Rotate90Multi(int cnt, float K[9], float R[9], float T[3], fl
 	}
 }
 
-void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) {
+void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	// modify intrinsics
 	double K_new[9] = {0.};
 	double fx_old = K_[0];
@@ -230,7 +237,7 @@ void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_
 	const Eigen::Map<const Eigen::Matrix<double, 3, 1>> T_old(T_);
 
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
-	const Eigen::Matrix<double, 3, 1, Eigen::RowMajor> T_new = rot * T_old;
+	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
@@ -253,7 +260,7 @@ void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_
 	DoubleArrToFloatArr(C_new_double, C, 3);
 }
 
-void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) {
+void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	// modify intrinsics
 	double K_new[9] = {0.};
 	double fx_old = K_[0];
@@ -274,7 +281,7 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	const Eigen::Map<const Eigen::Matrix<double, 3, 1>> T_old(T_);
 
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
-	const Eigen::Matrix<double, 3, 1, Eigen::RowMajor> T_new = rot * T_old;
+	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
@@ -297,7 +304,7 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	DoubleArrToFloatArr(C_new_double, C, 3);
 }
 
-void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) {
+void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	// modify intrinsics
 	double K_new[9] = {0.};
 	double fx_old = K_[0];
@@ -318,7 +325,7 @@ void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv
 	const Eigen::Map<const Eigen::Matrix<double, 3, 1>> T_old(T_);
 
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
-	const Eigen::Matrix<double, 3, 1, Eigen::RowMajor> T_new = rot * T_old;
+	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
@@ -373,6 +380,21 @@ void Image::Downsize(const size_t max_width, const size_t max_height) {
   Rescale(std::min(factor_x, factor_y));
 }
 
+
+// only useful to estimate homography
+void ComputeRelativePose(const float R1[9], const float T1[3],
+                         const float R2[9], const float T2[3], float R[9],
+                         float T[3]) {
+  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R1_m(R1);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R2_m(R2);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T1_m(T1);
+  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T2_m(T2);
+  Eigen::Map<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R_m(R);
+  Eigen::Map<Eigen::Vector3f> T_m(T);
+
+  R_m = R2_m * R1_m.transpose();
+  T_m = T2_m - R_m * T1_m;
+}
 
 
 }  // namespace mvs

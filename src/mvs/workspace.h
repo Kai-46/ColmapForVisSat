@@ -109,8 +109,8 @@ class Workspace {
 
 // Import a PMVS workspace into the COLMAP workspace format. Only images in the
 // provided option file name will be imported and used for reconstruction.
-void ImportPMVSWorkspace(const Workspace& workspace,
-                         const std::string& option_name);
+//void ImportPMVSWorkspace(const Workspace& workspace,
+//                         const std::string& option_name);
 
 }  // namespace mvs
 }  // namespace colmap

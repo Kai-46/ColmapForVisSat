@@ -37,13 +37,19 @@
 namespace colmap {
 namespace mvs {
 
-DepthMap::DepthMap() : DepthMap(0, 0, -1.0f, -1.0f) {}
+DepthMap::DepthMap() : DepthMap(0, 0, -1e20f, -1e20f) {
+	// intialize to an absurd value
+//	Fill(-1e20f);
+}
 
 DepthMap::DepthMap(const size_t width, const size_t height,
                    const float depth_min, const float depth_max)
     : Mat<float>(width, height, 1),
       depth_min_(depth_min),
-      depth_max_(depth_max) {}
+      depth_max_(depth_max) {
+	// initialize to an absurd value
+	Fill(-1e20f);
+}
 
 DepthMap::DepthMap(const Mat<float>& mat, const float depth_min,
                    const float depth_max)
