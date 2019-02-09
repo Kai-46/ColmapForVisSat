@@ -422,7 +422,13 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // in camera coordinate frame, normal points to the negative z axis direction?
   const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
 
-  printf("line 382, dist: %f\n", dist);
+  // printf("line 382, dist: %f\n", dist);
+  if (dist < 0) {
+	  printf("ref_C: %f, %f, %f\n", ref_C[0], ref_C[1], ref_C[2]);
+	  printf("normal: %f, %f, %f\n", normal[0], normal[1], normal[2]);
+	  printf("point: %f, %f, %f\n", point[0], point[1], point[2]);
+	  return;
+  }
 
   const float inv_dist = 1.0f / dist;
 
