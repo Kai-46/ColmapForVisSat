@@ -39,6 +39,8 @@
 #include <cstdint>
 #include <sstream>
 
+#include <cstdio>
+
 #include "util/cuda.h"
 #include "util/cudacc.h"
 #include "util/logging.h"
@@ -376,6 +378,9 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // note that a plane is written as n^TX-d=0, with d>0
   // normal vector should always point from the origin to the plane
   const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
+
+  printf("line 382, dist: %f\n", dist);
+
   const float inv_dist = 1.0f / dist;
 
   // change the normal vector to the reference image camera
@@ -1195,6 +1200,8 @@ __global__ void SweepFromTopToBottom(
       }
 
       if (num_consistent < options.filter_min_num_consistent) {
+    	printf("line 1201, num_consistent:  %d\n", num_consistent);
+
         const float kFilterValue = -1e20f;  // change to an absurd value
         depth_map.Set(row, col, kFilterValue);
         normal_map.Set(row, col, 0, kFilterValue);
