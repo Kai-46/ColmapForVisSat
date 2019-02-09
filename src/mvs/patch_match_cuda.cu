@@ -172,18 +172,35 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
   normal[2] = 1.0f - 2.0f * s;
 
   // Make sure normal is looking away from camera.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
-  if (DotProduct3(normal, view_ray) > 0) {
-    normal[0] = -normal[0];
-    normal[1] = -normal[1];
-    normal[2] = -normal[2];
-  }
+//  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+//                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+//  if (DotProduct3(normal, view_ray) > 0) {
+//    normal[0] = -normal[0];
+//    normal[1] = -normal[1];
+//    normal[2] = -normal[2];
+//  }
+
+  // make sure normal is pointing towards the camera
+    const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+                               ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+    // rotate view_ray to the scene coordinate frame
+    // need a transpose of R
+    float view_ray_ref [3];
+    const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
+    								ref_R[1], ref_R[4], ref_R[7],
+									ref_R[2], ref_R[5], ref_R[8]};
+    Mat33DotVec3(ref_R_transpose, view_ray, view_ray_ref);
+    if (DotProduct3(normal, view_ray_ref) > 0) {
+      normal[0] = -normal[0];
+      normal[1] = -normal[1];
+      normal[2] = -normal[2];
+    }
+
 }
 
 // make the perturbation more robust to big mean depth
 __device__ inline float PerturbDepth(const float perturbation,
-                                     const float depth_uncertainty,
+                                    const float depth_uncertainty,
                                      const float depth,
                                      curandState* rand_state) {
   // const float depth_min = (1.0f - perturbation) * depth;
@@ -228,9 +245,33 @@ __device__ inline void PerturbNormal(const int row, const int col,
 
   // Make sure the perturbed normal is still looking in the same direction as
   // the viewing direction, otherwise try again but with smaller perturbation.
+//  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+//                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+//  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
+//    const int kMaxNumTrials = 3;
+//    if (num_trials < kMaxNumTrials) {
+//      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
+//                    perturbed_normal, num_trials + 1);
+//      return;
+//    } else {
+//      perturbed_normal[0] = normal[0];
+//      perturbed_normal[1] = normal[1];
+//      perturbed_normal[2] = normal[2];
+//      return;
+//    }
+//  }
+
+  // Make sure the perturbed normal is still looking in the same direction as
+  // the viewing direction, otherwise try again but with smaller perturbation.
   const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
                              ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
-  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
+  // rotate view_ray to the reference coordinate frame
+  float view_ray_ref [3];
+  const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
+  								ref_R[1], ref_R[4], ref_R[7],
+									ref_R[2], ref_R[5], ref_R[8]};
+  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_ref);
+  if (DotProduct3(perturbed_normal, view_ray_ref) >= 0.0f) {
     const int kMaxNumTrials = 3;
     if (num_trials < kMaxNumTrials) {
       PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
@@ -243,6 +284,8 @@ __device__ inline void PerturbNormal(const int row, const int col,
       return;
     }
   }
+
+
 
   // Make sure normal has unit norm.
   const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
@@ -377,7 +420,9 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // Distance from the projection center to the plane
   // note that a plane is written as n^TX-d=0, with d>0
   // normal vector should always point from the origin to the plane
-  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
+
+  // in camera coordinate frame, normal points to the negative z axis direction?
+  const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
 
   //printf("line 382, dist: %f\n", dist);
 
