@@ -185,12 +185,12 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
                                ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
     // rotate view_ray to the scene coordinate frame
     // need a transpose of R
-    float view_ray_ref [3];
+    float view_ray_scene[3];
     const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
     								ref_R[1], ref_R[4], ref_R[7],
 									ref_R[2], ref_R[5], ref_R[8]};
-    Mat33DotVec3(ref_R_transpose, view_ray, view_ray_ref);
-    if (DotProduct3(normal, view_ray_ref) > 0) {
+    Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
+    if (DotProduct3(normal, view_ray_scene) < 0) {
       normal[0] = -normal[0];
       normal[1] = -normal[1];
       normal[2] = -normal[2];
@@ -266,12 +266,12 @@ __device__ inline void PerturbNormal(const int row, const int col,
   const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
                              ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
   // rotate view_ray to the reference coordinate frame
-  float view_ray_ref [3];
+  float view_ray_scene[3];
   const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
   								ref_R[1], ref_R[4], ref_R[7],
 									ref_R[2], ref_R[5], ref_R[8]};
-  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_ref);
-  if (DotProduct3(perturbed_normal, view_ray_ref) >= 0.0f) {
+  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
+  if (DotProduct3(perturbed_normal, view_ray_scene) <= 0.0f) {
     const int kMaxNumTrials = 3;
     if (num_trials < kMaxNumTrials) {
       PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
@@ -284,8 +284,6 @@ __device__ inline void PerturbNormal(const int row, const int col,
       return;
     }
   }
-
-
 
   // Make sure normal has unit norm.
   const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
