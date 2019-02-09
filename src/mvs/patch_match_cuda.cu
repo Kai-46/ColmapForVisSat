@@ -190,7 +190,7 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
     								ref_R[1], ref_R[4], ref_R[7],
 									ref_R[2], ref_R[5], ref_R[8]};
     Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
-    if (DotProduct3(normal, view_ray_scene) < 0) {
+    if (DotProduct3(normal, view_ray_scene) >= 0) {
       normal[0] = -normal[0];
       normal[1] = -normal[1];
       normal[2] = -normal[2];
@@ -271,7 +271,7 @@ __device__ inline void PerturbNormal(const int row, const int col,
   								ref_R[1], ref_R[4], ref_R[7],
 									ref_R[2], ref_R[5], ref_R[8]};
   Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
-  if (DotProduct3(perturbed_normal, view_ray_scene) <= 0.0f) {
+  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
     const int kMaxNumTrials = 3;
     if (num_trials < kMaxNumTrials) {
       PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
@@ -422,7 +422,7 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // in camera coordinate frame, normal points to the negative z axis direction?
   const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
 
-  //printf("line 382, dist: %f\n", dist);
+  printf("line 382, dist: %f\n", dist);
 
   const float inv_dist = 1.0f / dist;
 
@@ -859,7 +859,6 @@ class LikelihoodComputer {
   float ncc_norm_factor_;
 };
 
-// Rotate normals by 90deg around z-axis in counter-clockwise direction.
 __global__ void InitNormalMap(GpuMat<float> normal_map,
                               GpuMat<curandState> rand_state_map) {
   const int row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -1243,7 +1242,7 @@ __global__ void SweepFromTopToBottom(
       }
 
       if (num_consistent < options.filter_min_num_consistent) {
-    	//printf("line 1201, num_consistent:  %d\n", num_consistent);
+    	printf("line 1201, num_consistent:  %d\n", num_consistent);
 
         const float kFilterValue = -1e20f;  // change to an absurd value
         depth_map.Set(row, col, kFilterValue);
