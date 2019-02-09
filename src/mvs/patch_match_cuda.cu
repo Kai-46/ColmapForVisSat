@@ -424,21 +424,9 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   float point[3];
   ComputePointAtDepth(row, col, depth, point);
 
-  // Distance from the projection center to the plane
-  // note that a plane is written as n^TX-d=0, with d>0
-  // normal vector should always point from the origin to the plane
-
-  // in camera coordinate frame, normal points to the negative z axis direction?
-  const float dist = abs(DotProduct3(ref_C, normal) - DotProduct3(point, normal));
-
-  // printf("line 382, dist: %f\n", dist);
-//  if (dist < 0) {
-//	  printf("ref_C: %f, %f, %f\n", ref_C[0], ref_C[1], ref_C[2]);
-//	  printf("normal: %f, %f, %f\n", normal[0], normal[1], normal[2]);
-//	  printf("point: %f, %f, %f\n", point[0], point[1], point[2]);
-//	  return;
-//  }
-
+  // note that a plane is written as n^TX+d=0
+  // actually only need to make sure n'x+d= 0 in reference coordinate frame
+  const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
   const float inv_dist = 1.0f / dist;
 
   // change the normal vector to the reference image camera
@@ -1259,7 +1247,8 @@ __global__ void SweepFromTopToBottom(
       }
 
       if (num_consistent < options.filter_min_num_consistent) {
-    	printf("line 1201, num_consistent:  %d\n", num_consistent);
+
+    	// printf("line 1201, num_consistent:  %d\n", num_consistent);
 
         const float kFilterValue = -1e20f;  // change to an absurd value
         depth_map.Set(row, col, kFilterValue);

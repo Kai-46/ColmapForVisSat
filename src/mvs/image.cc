@@ -198,6 +198,58 @@ void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_
 	DoubleArrToFloatArr(C_double, C, 3);
 }
 
+inline void MatrixPrint(float *mat, int row_cnt, int col_cnt) {
+	for (int i=0; i<row_cnt; ++i) {
+		for (int j=0; j<col_cnt; ++j) {
+			std::cout << mat[i*col_cnt+j] << ", ";
+		}
+	}
+}
+
+void Image::Rotate90Multi_test(int cnt) const {
+	float K[9];
+	float R[9];
+	float T[3];
+	float P[16];
+	float inv_P[16];
+	float C[3];
+
+	Rotate90Multi(cnt, K, R, T, P, inv_P, C);
+
+	float K_float[9];
+	DoubleArrToFloatArr(K_, K_float, 9);
+	std::cout << "\nrot=0, K_: ";
+	MatrixPrint(K_float, 3, 3);
+	std::cout << "\nwidth, height: " << width_ << ", " << height_;
+	std::cout << "\nrot=" << cnt << ", K: ";
+	MatrixPrint(K, 3, 3);
+
+	float R_float[9];
+	DoubleArrToFloatArr(R_, R_float, 9);
+	std::cout << "\nrot=0, R_: ";
+	MatrixPrint(R_float, 3, 3);
+	std::cout << "\nrot=" << cnt << ", R: ";
+    MatrixPrint(R, 3, 3);
+
+	float T_float[3];
+	DoubleArrToFloatArr(T_, T_float, 3);
+	std::cout << "\nrot=0, R_: ";
+	MatrixPrint(T_float, 3, 1);
+	std::cout << "\nrot=" << cnt << ", T: ";
+	MatrixPrint(T, 3, 1);
+
+	float last_row_float[4];
+	DoubleArrToFloatArr(last_row_, last_row_float, 4);
+	std::cout << "\nlast_row_: ";
+	MatrixPrint(last_row_float, 1, 4);
+	std::cout << "\nrot=" << cnt << ", P: ";
+	MatrixPrint(P, 4, 4);
+	std::cout << "\nrot=" << cnt << ", inv_P: ";
+	MatrixPrint(inv_P, 4, 4);
+
+	std::cout << std::endl;
+}
+
 void Image::Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	switch (cnt % 4) {
 	case 0:
@@ -229,6 +281,9 @@ void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_
 	K_new[2] = cy_old;
 	K_new[4] = fx_old;
 	K_new[5] = -cx_old + width_ - 1;
+
+	// big bug here
+	K_new[8] = 1.0;
 
 	// modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;
@@ -272,6 +327,9 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	K_new[2] = -cx_old + width_ - 1;
 	K_new[4] = fy_old;
 	K_new[5] = -cy_old + height_ - 1;
+
+	// bug here
+	K_new[8] = 1.0;
 
 	// modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;
@@ -317,6 +375,9 @@ void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv
 	K_new[2] = -cy_old + height_ - 1;
 	K_new[4] = fx_old;
 	K_new[5] = cx_old;
+
+	// big bug here
+	K_new[8] = 1.0;
 
 	// modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;

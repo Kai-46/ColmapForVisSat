@@ -92,6 +92,13 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     // set last row
     images.back().SetLastRow(last_rows.find(image.Name())->second);
 
+    // debug test rotation
+    // debug
+    std::cout << image_path << std::endl;
+    for (int i =0; i<4; ++i) {
+    	images.back().Rotate90Multi_test(i);
+    }
+
     image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), i);
@@ -114,6 +121,9 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     }
     points.push_back(point);
   }
+
+  // for debug
+//  exit(-1);
 }
 
 //void Model::ReadFromPMVS(const std::string& path) {
