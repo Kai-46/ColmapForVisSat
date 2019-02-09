@@ -304,6 +304,7 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	DoubleArrToFloatArr(C_new_double, C, 3);
 }
 
+
 void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	// modify intrinsics
 	double K_new[9] = {0.};

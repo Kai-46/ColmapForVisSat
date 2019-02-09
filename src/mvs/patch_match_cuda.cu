@@ -125,7 +125,7 @@ __device__ inline void InverseProjection(const float mat[16],
 __device__ inline void ComputePointAtDepth(const float row, const float col,
                                            const float depth, float point[3]) {
   const float vec[3] = {col, row, depth};
-  InverseProjection(ref_P, vec, point);
+  InverseProjection(ref_inv_P, vec, point);
 }
 
 __device__ inline float DotProduct3(const float vec1[3], const float vec2[3]) {
@@ -152,6 +152,8 @@ __device__ inline float GenerateRandomDepth(const float depth_min,
   return curand_uniform(rand_state) * (depth_max - depth_min) + depth_min;
 }
 
+
+// this might be improved by using non-uniform sampling
 __device__ inline void GenerateRandomNormal(const int row, const int col,
                                             curandState* rand_state,
                                             float normal[3]) {
@@ -190,12 +192,20 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
     								ref_R[1], ref_R[4], ref_R[7],
 									ref_R[2], ref_R[5], ref_R[8]};
     Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
-    if (DotProduct3(normal, view_ray_scene) >= 0) {
+
+
+    if (DotProduct3(normal, view_ray_scene) >= 0.0f) {
       normal[0] = -normal[0];
       normal[1] = -normal[1];
       normal[2] = -normal[2];
     }
 
+    // make sense to have negative normal[2]
+//    if (normal[2] < 0.0f) {
+//    	printf("what the heck, view_ray_scene: %f, %f, %f, normal: %f, %f, %f\n",
+//    			view_ray_scene[0], view_ray_scene[1], view_ray_scene[2],
+//				normal[0], normal[1], normal[2]);
+//    }
 }
 
 // make the perturbation more robust to big mean depth
@@ -281,7 +291,6 @@ __device__ inline void PerturbNormal(const int row, const int col,
       perturbed_normal[0] = normal[0];
       perturbed_normal[1] = normal[1];
       perturbed_normal[2] = normal[2];
-      return;
     }
   }
 
@@ -420,15 +429,15 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // normal vector should always point from the origin to the plane
 
   // in camera coordinate frame, normal points to the negative z axis direction?
-  const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
+  const float dist = abs(DotProduct3(ref_C, normal) - DotProduct3(point, normal));
 
   // printf("line 382, dist: %f\n", dist);
-  if (dist < 0) {
-	  printf("ref_C: %f, %f, %f\n", ref_C[0], ref_C[1], ref_C[2]);
-	  printf("normal: %f, %f, %f\n", normal[0], normal[1], normal[2]);
-	  printf("point: %f, %f, %f\n", point[0], point[1], point[2]);
-	  return;
-  }
+//  if (dist < 0) {
+//	  printf("ref_C: %f, %f, %f\n", ref_C[0], ref_C[1], ref_C[2]);
+//	  printf("normal: %f, %f, %f\n", normal[0], normal[1], normal[2]);
+//	  printf("point: %f, %f, %f\n", point[0], point[1], point[2]);
+//	  return;
+//  }
 
   const float inv_dist = 1.0f / dist;
 
@@ -496,7 +505,7 @@ struct PhotoConsistencyCostComputer {
   int col = -1;
 
   // Depth and normal for which to warp patch.
-  float depth = 0.0f;
+  float depth = -1e20f;
   const float* normal = nullptr;
 
   __device__ inline float Compute() const {
@@ -1219,7 +1228,9 @@ __global__ void SweepFromTopToBottom(
         float cos_incident_angle;
         ComputeViewingAngles(best_point, best_normal, image_idx,
                              &cos_triangulation_angle, &cos_incident_angle);
-        if (cos_triangulation_angle > cos_min_triangulation_angle ||
+        // triangulation angle should not be too big or too small
+        // which is why we need to take the absolute value
+        if (abs(cos_triangulation_angle) > cos_min_triangulation_angle ||
             cos_incident_angle <= 0.0f) {
           continue;
         }
@@ -1648,7 +1659,12 @@ void PatchMatchCuda::InitTransforms() {
   //////////////////////////////////////////////////////////////////////////////
 
   for (int i = 0; i < 4; ++i) {
-	ref_image.Rotate90Multi(i, ref_K_host_[i], ref_R_host_[i], ref_T_host_[i], ref_P_host_[i], ref_inv_P_host_[i], ref_C_host_);
+	float K_full_tmp[9];
+	ref_image.Rotate90Multi(i, K_full_tmp, ref_R_host_[i], ref_T_host_[i], ref_P_host_[i], ref_inv_P_host_[i], ref_C_host_);
+	ref_K_host_[i][0] = K_full_tmp[0];	// fx
+	ref_K_host_[i][1] = K_full_tmp[2];	// cx
+	ref_K_host_[i][2] = K_full_tmp[4];	// fy
+	ref_K_host_[i][3] = K_full_tmp[5];	// cy
   }
 
   // Extract 1/fx, -cx/fx, fy, -cy/fy.
