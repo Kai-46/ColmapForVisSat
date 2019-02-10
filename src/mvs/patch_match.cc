@@ -221,6 +221,9 @@ void PatchMatchController::Run() {
                           problem_idx);
   }
 
+  // for debug
+   //thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_, (size_t) 0);
+
   thread_pool_->Wait();
 
   GetTimer().PrintMinutes();

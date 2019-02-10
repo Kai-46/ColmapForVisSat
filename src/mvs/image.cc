@@ -58,12 +58,14 @@ inline void Compute4by4ProjectionMatrix(const double K[9],
 
 	  // try to make the projection matrix more numerically stable
 	  // scale all the numbers to lie in [0, 10]
-	  double scale = 10.0 / P_4by4.maxCoeff();
-	  P_4by4 *= scale;
+	  P_4by4 *= (10.0 / P_4by4.maxCoeff());
 
 	  memcpy(P, P_4by4.data(), 16 * sizeof(double));
 
 	  Eigen::Matrix<double, 4, 4, Eigen::RowMajor> inv_P_4by4 = P_4by4.inverse();
+
+	  inv_P_4by4 *= (10.0 / inv_P_4by4.maxCoeff());
+
 	  memcpy(inv_P, inv_P_4by4.data(), 16 * sizeof(double));
 }
 
@@ -233,7 +235,7 @@ void Image::Rotate90Multi_test(int cnt) const {
 
 	float T_float[3];
 	DoubleArrToFloatArr(T_, T_float, 3);
-	std::cout << "\nrot=0, R_: ";
+	std::cout << "\nrot=0, T_: ";
 	MatrixPrint(T_float, 3, 1);
 	std::cout << "\nrot=" << cnt << ", T: ";
 	MatrixPrint(T, 3, 1);

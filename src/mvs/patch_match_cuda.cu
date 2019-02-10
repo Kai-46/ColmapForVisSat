@@ -88,6 +88,96 @@ __constant__ float ref_inv_P[16];
 __constant__ float max_dist_per_pixel[1];
 
 
+//__global__ inline void PrintSetting() {
+//	printf("\nref_K: ");
+//	for (int i=0; i<4; ++i) {
+//		printf("%.6e, ", ref_K[i]);
+//	}
+//
+//	printf("\nref_inv_K: ");
+//	for (int i=0; i<4; ++i) {
+//		printf("%.6e, ", ref_inv_K[i]);
+//	}
+//
+//	printf("\nref_R: ");
+//	for (int i=0; i<9; ++i) {
+//		printf("%.6e, ", ref_R[i]);
+//	}
+//
+//	printf("\nref_T: ");
+//	for (int i=0; i<3; ++i) {
+//		printf("%.6e, ", ref_T[i]);
+//	}
+//
+//	printf("\nref_C: ");
+//	for (int i=0; i<3; ++i) {
+//		printf("%.6e, ", ref_C[i]);
+//	}
+//
+//	printf("\nref_P: ");
+//	for (int i=0; i<16; ++i) {
+//		printf("%.6e, ", ref_P[i]);
+//	}
+//
+//	printf("\nref_inv_P: ");
+//	for (int i=0; i<16; ++i) {
+//		printf("%.6e, ", ref_inv_P[i]);
+//	}
+//
+//	printf("\nmax_dist_per_pixel: %.6e", max_dist_per_pixel[0]);
+//
+//
+//	// check source images
+//	for (int image_idx=0; image_idx<3; ++image_idx) {
+//		printf("\n image_idx: %i", image_idx);
+//	  // Calibration of source image.
+//		  float K[4];
+//		  printf("\n\t src_K: ");
+//		  for (int i = 0; i < 4; ++i) {
+//			K[i] = tex2D(poses_texture, i, image_idx);
+//			printf("%.6e, ", K[i]);
+//		  }
+//
+//		  // Relative rotation between reference and source image.
+//		  float R[9];
+//		  printf("\n\t src_rel_R: ");
+//		  for (int i = 0; i < 9; ++i) {
+//			R[i] = tex2D(poses_texture, i + 4, image_idx);
+//			printf("%.6e, ", R[i]);
+//		  }
+//
+//		  // Relative translation between reference and source image.
+//		  float T[3];
+//		  printf("\n\t src_rel_T: ");
+//		  for (int i = 0; i < 3; ++i) {
+//			T[i] = tex2D(poses_texture, i + 13, image_idx);
+//			printf("%.6e, ", T[i]);
+//		  }
+//
+//		  // center
+//		  float src_C[3];
+//		  printf("\n\t src_C: ");
+//		  for (int i = 0; i < 3; ++i) {
+//			src_C[i] = tex2D(poses_texture, i + 16, image_idx);
+//			printf("%.6e, ", src_C[i]);
+//		  }
+//
+//		  float P[16];
+//		  printf("\n\t src_P: ");
+//		  for (int i = 0; i < 16; ++i) {
+//			P[i] = tex2D(poses_texture, i + 19, image_idx);
+//			printf("%.6e, ", P[i]);
+//		  }
+//
+//		  float inv_P[16];
+//		  printf("\n\t src_inv_P: ");
+//		  for (int i = 0; i < 16; ++i) {
+//			inv_P[i] = tex2D(poses_texture, i + 35, image_idx);
+//			printf("%.6e, ", inv_P[i]);
+//		  }
+//	}
+//}
+
 // homography
 __device__ inline void HomographyWarp(const float mat[9],
                                       const float vec[2],
@@ -126,6 +216,8 @@ __device__ inline void ComputePointAtDepth(const float row, const float col,
                                            const float depth, float point[3]) {
   const float vec[3] = {col, row, depth};
   InverseProjection(ref_inv_P, vec, point);
+  // for debug
+//  printf("computepointatdepth: pixel: %f, %f, %f, point: %f, %f, %f\n", col, row, depth, point[0], point[1], point[2]);
 }
 
 __device__ inline float DotProduct3(const float vec1[3], const float vec2[3]) {
@@ -424,21 +516,32 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   float point[3];
   ComputePointAtDepth(row, col, depth, point);
 
-  // note that a plane is written as n^TX+d=0
-  // actually only need to make sure n'x+d= 0 in reference coordinate frame
-  const float dist = DotProduct3(ref_C, normal) - DotProduct3(point, normal);
+  // note that a plane is written as n'X-d=0
+  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
   const float inv_dist = 1.0f / dist;
 
   // change the normal vector to the reference image camera
   // in order to compute the homography
-  float normal_ref [3];
+  float normal_ref[3];
   Mat33DotVec3(ref_R, normal, normal_ref);
 
   const float inv_dist_N0 = inv_dist * normal_ref[0];
   const float inv_dist_N1 = inv_dist * normal_ref[1];
   const float inv_dist_N2 = inv_dist * normal_ref[2];
 
-  // Homography as H = K * (R - T * n' / d) * Kref^-1.
+  // for debug, let's check whether in the reference coordinate frame n'x-d=0 hold
+//  float point_ref[3];
+//  Mat33DotVec3(ref_R, point, point_ref);
+//  point_ref[0] += ref_T[0];
+//  point_ref[1] += ref_T[1];
+//  point_ref[2] += ref_T[2];
+//  float tmp = DotProduct3(point_ref, normal_ref) - dist;
+//  if (abs(tmp) > 1e-6f) {
+//	  printf("\nwhat the heck, tmp: %.6e\n", tmp);
+//  }
+
+  // Homography as H = K * (R + T * n' / d) * Kref^-1
+  // Make sure in the reference coordinate frame n'x-d=0
   H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
 		  K[1] * (R[6] + inv_dist_N0 * T[2]));
   H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
@@ -1436,6 +1539,11 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
+//      printf("\nsweep: %i", sweep);
+//      int numBlock = 1;
+//      int numThreadsPerBlock = 1;
+//      PrintSetting<<<numBlock,numThreadsPerBlock>>>();
+
 #define CALL_SWEEP_FUNC                                                  \
   SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
                        kFilterPhotoConsistency, kFilterGeomConsistency>  \
@@ -1444,6 +1552,8 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           *normal_map_, *consistency_mask_, *sel_prob_map_,              \
           *prev_sel_prob_map_, *ref_image_->sum_image,                   \
           *ref_image_->squared_sum_image, sweep_options);
+
+
 
       if (last_sweep) {
         if (options_.filter) {
@@ -1715,6 +1825,7 @@ void PatchMatchCuda::InitTransforms() {
       ComputeRelativePose(ref_R_host_[i], ref_T_host_[i], R, T, rel_R, rel_T);
       memcpy(poses_host_data + offset, rel_R, 9 * sizeof(float));
       offset += 9;
+      // actually rel_T should not change when we rotate the reference image
       memcpy(poses_host_data + offset, rel_T, 3 * sizeof(float));
       offset += 3;
       memcpy(poses_host_data + offset, C, 3 * sizeof(float));

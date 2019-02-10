@@ -94,10 +94,10 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 
     // debug test rotation
     // debug
-    std::cout << image_path << std::endl;
-    for (int i =0; i<4; ++i) {
-    	images.back().Rotate90Multi_test(i);
-    }
+//    std::cout << image_path << std::endl;
+//    for (int i =0; i<4; ++i) {
+//    	images.back().Rotate90Multi_test(i);
+//    }
 
     image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
