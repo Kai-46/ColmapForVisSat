@@ -216,6 +216,9 @@ void StereoFusion::Run() {
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
         static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
 
+
+//    std::cout << "image_idx: " << image_idx << ", bitmap_scales, first, second: " << bitmap_scales_.at(image_idx).first
+//    		<< ", " << bitmap_scales_.at(image_idx).second << std::endl;
     double K[9];
     image.GetKDouble(K);
     K[0] *= bitmap_scales_.at(image_idx).first; // fx
@@ -224,6 +227,10 @@ void StereoFusion::Run() {
     K[5] *= bitmap_scales_.at(image_idx).second; // cy
     // pass back to image
     image.SetK(K);
+
+    // for debug
+    // image.Rotate90Multi_test(0);
+
     image.GetPinvP(P_.at(image_idx).data(), inv_P_.at(image_idx).data());
   }
 

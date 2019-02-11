@@ -727,8 +727,9 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
   Projection(P, forward_point, src_pixel);
 
   // Extract depth in source image.
-  const float src_depth = tex2DLayered(src_depth_maps_texture, src_pixel[0] + 0.5f,
-                                       src_pixel[1] + 0.5f, image_idx);
+  // why would we need a half pixel here
+  const float src_depth = tex2DLayered(src_depth_maps_texture, src_pixel[0],
+                                       src_pixel[1], image_idx);
 
   // Projection outside of source image.
   if (src_depth <= -1e19f) {
