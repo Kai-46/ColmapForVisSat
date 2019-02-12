@@ -150,7 +150,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     points.push_back(point);
   }
 
-  std::cout << "line 126 at model.cc" << std::endl;
+  //std::cout << "line 126 at model.cc" << std::endl;
   // for debug
 //  exit(-1);
 }
@@ -268,8 +268,8 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 //     const float kMaxPercentile = 0.99f;
     
     // let's be more conservative
-    const float kMinPercentile = 0.05f;
-    const float kMaxPercentile = 0.95f;
+    const float kMinPercentile = 0.01f;
+    const float kMaxPercentile = 0.99f;
     
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
@@ -279,12 +279,20 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 //     depth_range.second *= (1.0f + kStretchRatio);
       
     // one should stretch the portion of depth range span
-    const float kStretchRatio = 0.1;
-    float stretch = kStretchRatio * (depth_range.second - depth_range.first);
-    depth_range.first -= stretch;
-    depth_range.second += stretch;
+//    const float kStretchRatio = 0.1;
+//    float stretch = kStretchRatio * (depth_range.second - depth_range.first);
+//    depth_range.first -= stretch;
+//    depth_range.second += stretch;
     
-    std::cout << "image id: " << image_idx << " depth range: " << depth_range.first << ", " << depth_range.second << std::endl;
+    // compute inv_depth uncertainty
+    const float inv_depth_range = 1.0f / depth_range.first - 1.0f / depth_range.second;
+    const float kStretchRatio = 0.2;
+    const float stretch = kStretchRatio * inv_depth_range;
+    depth_range.first = 1.0f / (1.0f / depth_range.first - stretch);
+    depth_range.second = 1.0f / (1.0f / depth_range.second + stretch);
+
+    std::cout << "image id: " << image_idx << " depth range: " << depth_range.first << ", " << depth_range.second <<
+    		 ", inv depth range: " << 1.0f/depth_range.second << ", " << 1.0f/depth_range.first << std::endl;
   }
 
   return depth_ranges;
