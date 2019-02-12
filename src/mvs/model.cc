@@ -288,8 +288,15 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
     const float inv_depth_range = 1.0f / depth_range.first - 1.0f / depth_range.second;
     const float kStretchRatio = 0.2;
     const float stretch = kStretchRatio * inv_depth_range;
-    depth_range.first = 1.0f / (1.0f / depth_range.first + stretch);
-    depth_range.second = 1.0f / (1.0f / depth_range.second - stretch);
+
+    const float min_depth_new = 1.0f / (1.0f / depth_range.first + stretch);
+    const float max_depth_new = 1.0f / (1.0f / depth_range.second - stretch);
+    if (max_depth_new > min_depth_new) {
+        depth_range.first = min_depth_new;
+        depth_range.second = max_depth_new;
+    } else {
+    	std::cout << "image id: " << image_idx << " will be ignored due to invalid depth range" << std::endl;
+    }
 
     std::cout << "image id: " << image_idx << " depth range: " << depth_range.first << ", " << depth_range.second <<
     		 ", inv depth range: " << 1.0f/depth_range.second << ", " << 1.0f/depth_range.first << std::endl;
