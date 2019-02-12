@@ -139,9 +139,9 @@ struct PatchMatchOptions {
 
   void Print() const;
   bool Check() const {
-    if (depth_min != -1.0f || depth_max != -1.0f) {
+    if (depth_min > -1e19f || depth_max > -1e19f) {
       CHECK_OPTION_LE(depth_min, depth_max);
-      CHECK_OPTION_GE(depth_min, 0.0f);
+      // CHECK_OPTION_GE(depth_min, 0.0f);
     }
     CHECK_OPTION_LE(window_radius,
                     static_cast<int>(kMaxPatchMatchWindowRadius));
