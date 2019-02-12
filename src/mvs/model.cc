@@ -61,6 +61,8 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   Reconstruction reconstruction;
   reconstruction.Read(JoinPaths(path, "sparse"));
 
+  // std::cout << "line 64 at model.cc" << std::endl;
+
   // read-in the last row of the 4 by 4 matrices here
   std::map<std::string, double *> last_rows;
   std::ifstream infile;
@@ -73,11 +75,20 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 	  last_rows[image_name] = vec_ptr;
   }
 
+  // std::cout << "line 78 at model.cc" << std::endl;
+
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
     const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
+
+    // check whether the image exists in last_rows
+    // if (last_rows.find(image.Name()) == last_rows.end()) {
+    //     std::cout << "ignoring image: " << image.Name() << ", because no last_row exists" << std::endl;
+    //     continue;
+    // }
+
     const auto& camera = reconstruction.Camera(image.CameraId());
 
     CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
@@ -89,8 +100,24 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 
     images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
                         R.data(), T.data());
+
+    // images.push_back(Image(image_path, camera.Width(), camera.Height(), K.data(),
+    //                     R.data(), T.data()));
+
+    // std::cout << "line 97 at model.cc" << std::endl;
+
+    // std::cout << "image_name: " << image.Name() << std::endl;
+    // std::cout << "find image?: " << (last_rows.find(image.Name()) != last_rows.end()) << std::endl;
+
     // set last row
-    images.back().SetLastRow(last_rows.find(image.Name())->second);
+    //    check whether the image exists in last_rows
+    if (last_rows.find(image.Name()) == last_rows.end()) {
+        std::cout << "setting the last row for image: " << image.Name() << " to be (0, 0, 0, 1), because no last_row exists" << std::endl;
+        double default_last_row[4] = {0., 0., 0., 1.};
+        images.back().SetLastRow(default_last_row);
+    } else {
+        images.back().SetLastRow(last_rows.find(image.Name())->second);
+    }
 
     // debug test rotation
     // debug
@@ -104,6 +131,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     image_name_to_idx_.emplace(image.Name(), i);
   }
 
+  //std::cout << "line 107 at model.cc" << std::endl;
   // free memory
   for (std::map<std::string, double *>::iterator it=last_rows.begin(); it != last_rows.end(); ++it) {
 	  delete [] it->second;
@@ -122,6 +150,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     points.push_back(point);
   }
 
+  std::cout << "line 126 at model.cc" << std::endl;
   // for debug
 //  exit(-1);
 }
