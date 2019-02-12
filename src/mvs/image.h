@@ -82,6 +82,8 @@ class Image {
   void GetC(float C[3]) const;
   void GetPinvP(float P[16], float inv_P[16]) const;
 
+  void GetPinvPDouble(double P[16], double inv_P[16]) const;
+
   void Rotate90Multi_test(int cnt) const;
 
   void Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;

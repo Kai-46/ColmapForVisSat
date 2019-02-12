@@ -40,7 +40,9 @@
 
 #include <map>
 #include <fstream>
+#include <iomanip>
 
+#define PRECISION 17
 
 namespace colmap {
 namespace mvs {
@@ -150,9 +152,34 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     points.push_back(point);
   }
 
-  //std::cout << "line 126 at model.cc" << std::endl;
-  // for debug
-//  exit(-1);
+  // write projection matrices and inverse projection matrices to files
+  std::ofstream P_file(JoinPaths(path, "proj_mats.txt"), std::ios::trunc);
+  CHECK(P_file.is_open()) << path;
+    // set fulll precision
+  P_file << std::setprecision(PRECISION);
+
+  std::ofstream inv_P_file(JoinPaths(path, "inv_proj_mats.txt"), std::ios::trunc);
+  CHECK(inv_P_file.is_open()) << path;
+    // set fulll precision
+  inv_P_file << std::setprecision(PRECISION);
+
+  for (const auto& image: images) {
+	  std::string img_path = image.GetPath();
+	  std::string img_name = img_path.substr(img_path.rfind('/')+1);
+	  // get projection matrices
+	  double P[16];
+	  double inv_P[16];
+	  image.GetPinvPDouble(P, inv_P);
+
+	  P_file << img_name;
+	  inv_P_file << img_name;
+	  for (int i=0; i<16; ++i) {
+		  P_file << " " << P[i];
+		  inv_P_file << " " << inv_P[i];
+	  }
+	  P_file << '\n';
+	  inv_P_file << '\n';
+  }
 }
 
 //void Model::ReadFromPMVS(const std::string& path) {

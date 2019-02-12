@@ -181,6 +181,11 @@ void Image::GetPinvP(float P[16], float inv_P[16]) const {
 	DoubleArrToFloatArr(inv_P_double, inv_P, 16);
 }
 
+void Image::GetPinvPDouble(double P[16], double inv_P[16]) const {
+	// compute projection matrix
+	Compute4by4ProjectionMatrix(K_, R_, T_, last_row_, P, inv_P);
+}
+
 // low-precision output
 void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const{
 	// compute projection matrix
