@@ -65,8 +65,8 @@ struct PatchMatchOptions {
   std::string gpu_index = "-1";
 
   // Depth range in which to randomly sample depth hypotheses.
-  double depth_min = -1.0f;
-  double depth_max = -1.0f;
+  double depth_min = -1e20;
+  double depth_max = -1e20;
 
   // Half window size to compute NCC photo-consistency cost.
   int window_radius = 5;

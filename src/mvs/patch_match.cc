@@ -443,15 +443,17 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   auto patch_match_options = options;
 
-  if (patch_match_options.depth_min < 0 || patch_match_options.depth_max < 0) {
+  if (patch_match_options.depth_min < -1e19 || patch_match_options.depth_max < -1e19) {
     patch_match_options.depth_min =
         depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =
         depth_ranges_.at(problem.ref_image_idx).second;
-    CHECK(patch_match_options.depth_min > 0 &&
-          patch_match_options.depth_max > 0)
-        << " - You must manually set the minimum and maximum depth, since no "
-           "sparse model is provided in the workspace.";
+
+    // no need to have depth_min and depth_max greater than zero now
+//    CHECK(patch_match_options.depth_min > 0 &&
+//          patch_match_options.depth_max > 0)
+//        << " - You must manually set the minimum and maximum depth, since no "
+//           "sparse model is provided in the workspace.";
   }
 
   patch_match_options.gpu_index = std::to_string(gpu_index);
