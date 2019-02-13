@@ -428,26 +428,26 @@ __device__ inline void PerturbNormal(const int row, const int col,
 // depth is the intersection of the viewing ray through row2 with the plane
 // at row1 defined by the given depth and normal.
 __device__ inline float PropagateDepth(const float depth1,
-                                       const float normal1[3], const float row1,
+                                       const float normal1[3], const float col, const float row1,
                                        const float row2) {
   // first point
   float point1[3];
-  ComputePointAtDepth(row1, 0.0f, depth1, point1);
+  ComputePointAtDepth(row1, col, depth1, point1);
 
-  // collect co-efficients for inverse depth of pixel (0, row2)
+  // collect co-efficients for inverse depth of pixel (col, row2)
   const float coeff = normal1[0] * (point1[0] * ref_inv_P[15] - ref_inv_P[3]) + \
 		  	  	  	  normal1[1] * (point1[1] * ref_inv_P[15] - ref_inv_P[7]) + \
 					  normal1[2] * (point1[2] * ref_inv_P[15] - ref_inv_P[11]);
   // collect rhs
-  const float rhs =-( normal1[0] * (point1[0] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[1] * row2 - ref_inv_P[2]) + \
-	  	  	  	    normal1[1] * (point1[1] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[5] * row2 - ref_inv_P[6]) + \
-				    normal1[2] * (point1[2] * (ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[9] * row2 - ref_inv_P[10]) );
+  const float rhs =-( normal1[0] * (point1[0] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[0] * col - ref_inv_P[1] * row2 - ref_inv_P[2]) + \
+	  	  	  	    normal1[1] * (point1[1] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[4] * col - ref_inv_P[5] * row2 - ref_inv_P[6]) + \
+				    normal1[2] * (point1[2] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[8] * col - ref_inv_P[9] * row2 - ref_inv_P[10]) );
   // depth is the inverse of the fourth component
   float depth2 = coeff / rhs;
 
   // double check the correctness
   float point2[3];
-  ComputePointAtDepth(row2, 0.0f, depth2, point2);
+  ComputePointAtDepth(row2, col, depth2, point2);
   // if we deviate too much from point1, then there's some problem
   if (EuclidDist(point1, point2) > abs(row2 - row1) * max_dist_per_pixel[0]) {
 	  depth2 = depth1;
@@ -1164,7 +1164,7 @@ __global__ void SweepFromTopToBottom(
     // the depth of very oblique structures, i.e. pixels whose normal direction
     // is significantly different from their viewing direction.
     prev_param_state.depth = PropagateDepth(
-        prev_param_state.depth, prev_param_state.normal, row - 1, row);
+        prev_param_state.depth, prev_param_state.normal, col, row - 1, row);
 
     // Read parameters for current pixel from previous sweep.
     curr_param_state.depth = depth_map.Get(row, col);
