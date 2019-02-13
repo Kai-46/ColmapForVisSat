@@ -295,8 +295,8 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 //     const float kMaxPercentile = 0.99f;
     
     // let's be more conservative
-    const float kMinPercentile = 0.01f;
-    const float kMaxPercentile = 0.99f;
+    const float kMinPercentile = 0.02f;
+    const float kMaxPercentile = 0.98f;
     
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
@@ -312,9 +312,11 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 //    depth_range.second += stretch;
     
     // compute inv_depth uncertainty
-    const float inv_depth_range = 1.0f / depth_range.first - 1.0f / depth_range.second;
-    const float kStretchRatio = 0.2;
-    const float stretch = kStretchRatio * inv_depth_range;
+    //const float inv_depth_range = 1.0f / depth_range.first - 1.0f / depth_range.second;
+    // const float kStretchRatio = 0.2;
+    // const float stretch = kStretchRatio * inv_depth_range;
+
+    const float stretch = 5;
 
     const float min_depth_new = 1.0f / (1.0f / depth_range.first + stretch);
     const float max_depth_new = 1.0f / (1.0f / depth_range.second - stretch);
