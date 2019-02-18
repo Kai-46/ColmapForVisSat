@@ -339,7 +339,10 @@ void StereoFusion::Fuse() {
 
       // Depth error of reference depth with current depth.
       // Depth is the inverse of the fourth component
-      const float depth_error = std::abs((proj(2)/proj(3) - depth) / depth);
+      // const float depth_error = std::abs((proj(2)/proj(3) - depth) / depth);
+
+      // note that we use the absolute inverse_depth error
+      const float depth_error = std::abs(proj(3)/proj(2) - 1.f/depth);
       if (depth_error > options_.max_depth_error) {
         continue;
       }
