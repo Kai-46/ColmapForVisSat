@@ -445,6 +445,12 @@ __device__ inline float PropagateDepth(const float depth1,
   // depth is the inverse of the fourth component
   float depth2 = coeff / rhs;
 
+  // make sure depth2 is not nan
+  if (depth2 != depth2) {
+        depth2 = depth1;
+  }
+
+
   // double check the correctness
   float point2[3];
   ComputePointAtDepth(row2, col, depth2, point2);
