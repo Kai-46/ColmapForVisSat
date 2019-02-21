@@ -64,6 +64,9 @@ struct PatchMatchOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
+  // whether to overwrite existing reconstruction
+  bool overwrite = false;
+
   // Depth range in which to randomly sample depth hypotheses.
   double depth_min = -1e20;
   double depth_max = -1e20;
@@ -191,6 +194,9 @@ class PatchMatch {
 
     // Print the configuration to stdout.
     void Print() const;
+
+    // Print the configuration to string
+    std::string PrintToString() const;
   };
 
   PatchMatch(const PatchMatchOptions& options, const Problem& problem);

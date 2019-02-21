@@ -33,6 +33,8 @@
 
 #include <numeric>
 #include <unordered_set>
+#include <sstream>
+#include <fstream>
 
 #include "mvs/consistency_graph.h"
 #include "mvs/patch_match_cuda.h"
@@ -90,6 +92,24 @@ void PatchMatch::Problem::Print() const {
   } else {
     std::cout << std::endl;
   }
+}
+
+std::string PatchMatch::Problem::PrintToString() const {
+	std::ostringstream buffer;
+
+	buffer << "ref_image_idx: " << ref_image_idx << std::endl;
+	buffer << "#_src_images: " << src_image_idxs.size() << std::endl;
+	buffer << "src_image_idx: ";
+	if (!src_image_idxs.empty()) {
+	  for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
+	      buffer << src_image_idxs[i] << " ";
+	  }
+	  buffer << src_image_idxs.back() << std::endl;
+	} else {
+	  buffer << std::endl;
+	}
+
+	return buffer.str();
 }
 
 void PatchMatch::Check() const {
@@ -198,6 +218,14 @@ void PatchMatchController::Run() {
   ReadProblems();
   ReadGpuIndices();
 
+  // write into to text file
+  std::ofstream	ref2src_file(JoinPaths(workspace_path_, "ref2src.txt"), std::ios::trunc);
+  for(int i=0; i < problems_.size(); ++i) {
+	  ref2src_file << problems_[i].PrintToString();
+  }
+  ref2src_file.close();
+
+  // new thread pool
   thread_pool_.reset(new ThreadPool(gpu_indices_.size()));
 
   // If geometric consistency is enabled, then photometric output must be
@@ -432,9 +460,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string consistency_graph_path = JoinPaths(
       workspace_path_, stereo_folder, "consistency_graphs", file_name);
 
-  if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
+  if ((!options.overwrite) && ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
       (!options.write_consistency_graph ||
        ExistsFile(consistency_graph_path))) {
+	std::cout << "skipping view " << problem_idx + 1 << ", as the depth map and normal map already exist." << std::endl;
     return;
   }
 

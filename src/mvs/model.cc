@@ -152,14 +152,19 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     points.push_back(point);
   }
 
+  // write image_name_to_idx to file
+  std::ofstream	img_idx2name_file(JoinPaths(path, "img_idx2name.txt"), std::ios::trunc);
+  for(int i=0; i < image_names_.size(); ++i) {
+	  img_idx2name_file << i << " " << image_names_[i] << "\n";
+  }
+  img_idx2name_file.close();
+
   // write projection matrices and inverse projection matrices to files
   std::ofstream P_file(JoinPaths(path, "proj_mats.txt"), std::ios::trunc);
-  CHECK(P_file.is_open()) << path;
     // set fulll precision
   P_file << std::setprecision(PRECISION);
 
   std::ofstream inv_P_file(JoinPaths(path, "inv_proj_mats.txt"), std::ios::trunc);
-  CHECK(inv_P_file.is_open()) << path;
     // set fulll precision
   inv_P_file << std::setprecision(PRECISION);
 
@@ -180,6 +185,9 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 	  P_file << '\n';
 	  inv_P_file << '\n';
   }
+
+  P_file.close();
+  inv_P_file.close();
 }
 
 //void Model::ReadFromPMVS(const std::string& path) {

@@ -607,6 +607,10 @@ void OptionManager::AddPatchMatchStereoOptions() {
                               &patch_match_stereo->cache_size);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
+
+  // whether to overwrite existing reconstruction
+  AddAndRegisterDefaultOption("PatchMatchStereo.overwrite",
+                              &patch_match_stereo->overwrite);
 }
 
 void OptionManager::AddStereoFusionOptions() {
