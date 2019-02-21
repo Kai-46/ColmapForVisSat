@@ -243,13 +243,22 @@ __device__ inline void Mat33DotVec3(const float mat[9], const float vec[3],
   result[2] = mat[6] * vec[0] + mat[7] * vec[1] + mat[8] * vec[2];
 }
 
-__device__ inline void Mat44DotVec4(const float mat[16], const float vec[4],
+//__device__ inline void Mat44DotVec4(const float mat[16], const float vec[4],
+//                                    float result[4]) {
+//  result[0] = mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2] + mat[3] * vec[3];
+//  result[1] = mat[4] * vec[0] + mat[5] * vec[1] + mat[6] * vec[2] + mat[7] * vec[3];
+//  result[2] = mat[8] * vec[0] + mat[9] * vec[1] + mat[10] * vec[2] + mat[11] * vec[3];
+//  result[3] = mat[12] * vec[0] + mat[13] * vec[1] + mat[14] * vec[2] + mat[15] * vec[3];
+//}
+
+__device__ inline void Vec4DotMat44(const float vec[4], const float mat[16],
                                     float result[4]) {
-  result[0] = mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2] + mat[3] * vec[3];
-  result[1] = mat[4] * vec[0] + mat[5] * vec[1] + mat[6] * vec[2] + mat[7] * vec[3];
-  result[2] = mat[8] * vec[0] + mat[9] * vec[1] + mat[10] * vec[2] + mat[11] * vec[3];
-  result[3] = mat[12] * vec[0] + mat[13] * vec[1] + mat[14] * vec[2] + mat[15] * vec[3];
+  result[0] = vec[0] * mat[0] + vec[1] * mat[4] + vec[2] * mat[8] + vec[3] * mat[12];
+  result[1] = vec[0] * mat[1] + vec[1] * mat[5] + vec[2] * mat[9] + vec[3] * mat[13];
+  result[2] = vec[0] * mat[2] + vec[1] * mat[6] + vec[2] * mat[10] + vec[3] * mat[14];
+  result[3] = vec[0] * mat[3] + vec[1] * mat[7] + vec[2] * mat[11] + vec[3] * mat[15];
 }
+
 
 __device__ inline void Mat44DotMat44(const float mat1[16], const float mat2[16],
 									float result[16]) {
@@ -702,8 +711,8 @@ __device__ inline void ComputeViewingAngles(const float point[3],
 //         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
 //}
 
-// already numeric stable; however need to change the notion of depth
-// reference R, t
+
+// a more numerically stable way to compose homography
 __device__ inline void ComposeHomography(const int image_idx, const int row,
                                          const int col, const float depth,
                                          const float normal[3], float H[9]) {
@@ -721,7 +730,7 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
   // compute the 1 by 4 vector [n; c]^T ref_inv_P
   float vec_tmp[4];
   const float plane[4] = {normal[0], normal[1], normal[2], c};
-  Mat44DotVec4(ref_inv_P, plane, vec_tmp);
+  Vec4DotMat44(plane, ref_inv_P, vec_tmp);
 
   // compute matrix P ref_inv_P
   float mat_tmp[16];
@@ -2153,7 +2162,7 @@ void PatchMatchCuda::Rotate() {
     cost_map_.swap(rotated_cost_map);
   }
 
-  // Rotate transformations from source image to reference image
+  // Rotate transformations from reference image to source images
   CUDA_SAFE_CALL(cudaUnbindTexture(poses_texture));
   CUDA_SAFE_CALL(cudaBindTextureToArray(poses_texture, poses_device_[rotation_in_half_pi_]->GetPtr()));
 
