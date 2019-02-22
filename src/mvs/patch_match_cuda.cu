@@ -464,14 +464,15 @@ __device__ inline void PerturbNormal(const int row, const int col,
   CrossProduct3(normal, local_x, local_y);
 
   // generate a unit vector on the local x-y plane
-  const float local_theta = curand_uniform(rand_state) * 2 * M_PI;
-  const float local_vec[3] = {cos(local_theta), sin(local_theta), 0.0f};
-  // convert local_vec to the original coordinate frame
-  // note that the rotation from the original coordinate frame to the local one is (local_x, local_y, local_z)
-  // the inverse of this rotation is its transpose
-  const float vec[3] = { local_x[0] * local_vec[0] + local_x[1] * local_vec[1],
-		  local_y[0] * local_vec[0] + local_y[1] * local_vec[1],
-		  normal[0] * local_vec[0] + normal[1] * local_vec[1] };
+  const float theta = curand_uniform(rand_state) * 2 * M_PI;
+  const float cos_theta = cos(theta);
+  const float sin_theta = sin(theta);
+  // in the local coordinate frame, the vector has coordinate (cos theta, sin theta, 0)
+  // we need to convert it back to the original coordinate frame
+  // note that the rotation from the local coordinate frame to the original one is (local_x, local_y, local_z)
+  const float vec[3] = { cos_theta * local_x[0] + sin_theta * local_y[0],
+		  cos_theta * local_x[1] + sin_theta * local_y[1],
+		  cos_theta * local_x[2] + sin_theta * local_y[2] };
 
   // compute cross product between vec and normal to get the rotation axis
   float rot_axis[3];
@@ -481,20 +482,24 @@ __device__ inline void PerturbNormal(const int row, const int col,
   const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
 
   // the rotation matrix in the coordinate frame (vec, normal, rot_axis)
-  // is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
+  //      is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
   // we need to represent this rotation in the original coordinate frame
-  // essentially by multiply the two rotation matrix
+  // the rotation from (vec, normal, rot_axis) to the original one is (vec, normal, rot_axis)
+  // essentially by multiply (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1) and
+  //      (vec, normal, rot_axis)^T
   float R[9];
   const float cos_alpha = cos(alpha);
   const float sin_alpha = sin(alpha);
-  R[0] = cos_alpha * vec[0] - sin_alpha * vec[1];
-  R[1] = cos_alpha * normal[0] - sin_alpha * normal[1];
-  R[2] = cos_alpha * rot_axis[0] - sin_alpha * rot_axis[1];
-  R[3] = sin_alpha * vec[0] + cos_alpha * vec[1];
-  R[4] = sin_alpha * normal[0] + cos_alpha * normal[1];
-  R[5] = sin_alpha * rot_axis[0] + cos_alpha * rot_axis[1];
-  R[6] = vec[2];
-  R[7] = normal[2];
+  R[0] = cos_alpha * vec[0] - sin_alpha * normal[0];
+  R[1] = cos_alpha * vec[1] - sin_alpha * normal[1];
+  R[2] = cos_alpha * vec[2] - sin_alpha * normal[2];
+
+  R[3] = sin_alpha * vec[0] + cos_alpha * normal[0];
+  R[4] = sin_alpha * vec[1] + cos_alpha * normal[1];
+  R[5] = sin_alpha * vec[2] + cos_alpha * normal[2];
+
+  R[6] = rot_axis[0];
+  R[7] = rot_axis[1];
   R[8] = rot_axis[2];
 
   // Perturb the normal vector.
