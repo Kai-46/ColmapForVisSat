@@ -611,6 +611,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
   // whether to overwrite existing reconstruction
   AddAndRegisterDefaultOption("PatchMatchStereo.overwrite",
                               &patch_match_stereo->overwrite);
+  AddAndRegisterDefaultOption("PatchMatchStereo.use_exist_photom",
+                              &patch_match_stereo->use_exist_photom);
 }
 
 void OptionManager::AddStereoFusionOptions() {

@@ -230,7 +230,7 @@ void PatchMatchController::Run() {
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
-  if (options_.geom_consistency) {
+  if (options_.geom_consistency && !options_.use_exist_photom) {
     auto photometric_options = options_;
     photometric_options.geom_consistency = false;
     photometric_options.filter = false;

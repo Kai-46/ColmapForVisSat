@@ -64,9 +64,6 @@ struct PatchMatchOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
-  // whether to overwrite existing reconstruction
-  bool overwrite = false;
-
   // Depth range in which to randomly sample depth hypotheses.
   double depth_min = -1e20;
   double depth_max = -1e20;
@@ -104,6 +101,9 @@ struct PatchMatchOptions {
   // Whether to add a regularized geometric consistency term to the cost
   // function. If true, the `depth_maps` and `normal_maps` must not be null.
   bool geom_consistency = true;
+  bool use_exist_photom = false;
+  // whether to overwrite existing reconstruction
+  bool overwrite = false;
 
   // The relative weight of the geometric consistency term w.r.t. to
   // the photo-consistency term.
