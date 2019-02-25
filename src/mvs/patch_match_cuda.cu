@@ -444,153 +444,67 @@ __device__ inline float PerturbDepth(const float perturbation,
 
 
 //// sampling from a cone that centers around the current normal vector
-//__device__ inline void PerturbNormal(const int row, const int col,
-//                                     const float max_perturbation_angle,
-//                                     const float normal[3],
-//                                     curandState* rand_state,
-//                                     float perturbed_normal[3],
-//                                     const int num_trials = 0) {
-//  // uniformly sample from a cone that centers around the normal vector
-//
-//  // we first define a local coordinate frame whose z axis aligns with the normal direction
-//  // assume the z component of normal is always positive
-//  float local_x[3] = {0.0f, normal[2], -normal[1]};
-//  // normalize local_x
-//  const float inv_local_x_norm = rsqrt(DotProduct3(local_x, local_x));
-//  local_x[0] *= inv_local_x_norm;
-//  local_x[1] *= inv_local_x_norm;
-//  local_x[2] *= inv_local_x_norm;
-//  // compute local y direction as z\cross product x
-//  float local_y[3];
-//  CrossProduct3(normal, local_x, local_y);
-//
-//  // generate a unit vector on the local x-y plane
-//  const float theta = curand_uniform(rand_state) * 2 * M_PI;
-//  const float cos_theta = cos(theta);
-//  const float sin_theta = sin(theta);
-//  // in the local coordinate frame, the vector has coordinate (cos theta, sin theta, 0)
-//  // we need to convert it back to the original coordinate frame
-//  // note that the rotation from the local coordinate frame to the original one is (local_x, local_y, local_z)
-//  const float vec[3] = { cos_theta * local_x[0] + sin_theta * local_y[0],
-//		  cos_theta * local_x[1] + sin_theta * local_y[1],
-//		  cos_theta * local_x[2] + sin_theta * local_y[2] };
-//
-//  // compute cross product between vec and normal to get the rotation axis
-//  float rot_axis[3];
-//  CrossProduct3(vec, normal, rot_axis);
-//
-//  // sample a perturbation angle around the rotation axis
-//  const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
-//
-//  // the rotation matrix in the coordinate frame (vec, normal, rot_axis)
-//  //      is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
-//  // we need to represent this rotation in the original coordinate frame
-//  // the rotation from (vec, normal, rot_axis) to the original one is (vec, normal, rot_axis)
-//  // essentially by multiply (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1) and
-//  //      (vec, normal, rot_axis)^T
-//  float R[9];
-//  const float cos_alpha = cos(alpha);
-//  const float sin_alpha = sin(alpha);
-//  R[0] = cos_alpha * vec[0] - sin_alpha * normal[0];
-//  R[1] = cos_alpha * vec[1] - sin_alpha * normal[1];
-//  R[2] = cos_alpha * vec[2] - sin_alpha * normal[2];
-//
-//  R[3] = sin_alpha * vec[0] + cos_alpha * normal[0];
-//  R[4] = sin_alpha * vec[1] + cos_alpha * normal[1];
-//  R[5] = sin_alpha * vec[2] + cos_alpha * normal[2];
-//
-//  R[6] = rot_axis[0];
-//  R[7] = rot_axis[1];
-//  R[8] = rot_axis[2];
-//
-//  // Perturb the normal vector.
-//  Mat33DotVec3(R, normal, perturbed_normal);
-//
-//  // Make sure the perturbed normal is still looking in the same direction as
-//  // the viewing direction, otherwise try again but with smaller perturbation.
-//  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-//                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
-//  // rotate view_ray to the reference coordinate frame
-//  float view_ray_scene[3];
-//  const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
-//  								ref_R[1], ref_R[4], ref_R[7],
-//									ref_R[2], ref_R[5], ref_R[8]};
-//  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
-//  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
-//    const int kMaxNumTrials = 3;
-//    if (num_trials < kMaxNumTrials) {
-//      PerturbNormal(row, col, 0.5f * max_perturbation_angle, normal, rand_state,
-//                    perturbed_normal, num_trials + 1);
-//      return;
-//    } else {
-//      perturbed_normal[0] = normal[0];
-//      perturbed_normal[1] = normal[1];
-//      perturbed_normal[2] = normal[2];
-//    }
-//  }
-//
-//  // Make sure normal has unit norm.
-//  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
-//  perturbed_normal[0] *= inv_norm;
-//  perturbed_normal[1] *= inv_norm;
-//  perturbed_normal[2] *= inv_norm;
-//}
-
-
-// randomly perturb the azimuth and elevation angle of the current normal
 __device__ inline void PerturbNormal(const int row, const int col,
                                      const float max_perturbation_angle,
                                      const float normal[3],
                                      curandState* rand_state,
                                      float perturbed_normal[3],
                                      const int num_trials = 0) {
-  // perturb azimuth
-  // rotate around the z-axis
-  // the rotation matrix is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
+  // uniformly sample from a cone that centers around the normal vector
+
+  // we first define a local coordinate frame whose z axis aligns with the normal direction
+  // assume the z component of normal is always positive
+  float local_x[3] = {0.0f, normal[2], -normal[1]};
+  // normalize local_x
+  const float inv_local_x_norm = rsqrt(DotProduct3(local_x, local_x));
+  local_x[0] *= inv_local_x_norm;
+  local_x[1] *= inv_local_x_norm;
+  local_x[2] *= inv_local_x_norm;
+  // compute local y direction as z\cross product x
+  float local_y[3];
+  CrossProduct3(normal, local_x, local_y);
+
+  // generate a unit vector on the local x-y plane
+  const float theta = curand_uniform(rand_state) * 2 * M_PI;
+  const float cos_theta = cos(theta);
+  const float sin_theta = sin(theta);
+  // in the local coordinate frame, the vector has coordinate (cos theta, sin theta, 0)
+  // we need to convert it back to the original coordinate frame
+  // note that the rotation from the local coordinate frame to the original one is (local_x, local_y, local_z)
+  const float vec[3] = { cos_theta * local_x[0] + sin_theta * local_y[0],
+		  cos_theta * local_x[1] + sin_theta * local_y[1],
+		  cos_theta * local_x[2] + sin_theta * local_y[2] };
+
+  // compute cross product between vec and normal to get the rotation axis
+  float rot_axis[3];
+  CrossProduct3(vec, normal, rot_axis);
+
+  // sample a perturbation angle around the rotation axis
   const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
-  const float sin_alpha = sin(alpha);
-  const float cos_alpha = cos(alpha);
 
-  const float local_x[3] = {
-		  cos_alpha * normal[0] - sin_alpha * normal[1],
-		  sin_alpha * normal[0] + cos_alpha * normal[1],
-		  normal[2]
-  };
-
-  // to perturb elevation, we need to first find the rotation axis
-  // rotation axis is the cross product of local_x and original z axis
-  // local_y = (0, 0, 1)
-  float local_z[3] = {local_x[1], -local_x[0], 0.0f};
-  const float inv_local_z_norm = rsqrt(DotProduct3(local_z, local_z));
-  local_z[0] *= inv_local_z_norm;
-  local_z[1] *= inv_local_z_norm;
-  local_z[2] *= inv_local_z_norm;
-
-  // perturb evelation
-  const float beta = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
-  const float sin_beta = sin(beta);
-  const float cos_beta = cos(beta);
-
-  // the rotation matrix in the coordinate frame (local_x, local_y, local_z)
-  //      is (cos beta, -sin beta, 0; sin beta, cos beta, 0; 0, 0, 1)
+  // the rotation matrix in the coordinate frame (vec, normal, rot_axis)
+  //      is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
   // we need to represent this rotation in the original coordinate frame
-  // the rotation from (local_x, local_y, local_z) to the original one is (local_x, local_y, local_z)
-  // essentially by multiply (cos beta, -sin beta, 0; sin beta, cos beta, 0; 0, 0, 1) and
-  //      (local_x, local_y, local_z)^T
+  // the rotation from (vec, normal, rot_axis) to the original one is (vec, normal, rot_axis)
+  // essentially by multiply (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1) and
+  //      (vec, normal, rot_axis)^T
   float R[9];
-  R[0] = cos_beta * local_x[0];
-  R[1] = cos_beta * local_x[1];
-  R[2] = cos_beta * local_x[2] - sin_beta;
+  const float cos_alpha = cos(alpha);
+  const float sin_alpha = sin(alpha);
+  R[0] = cos_alpha * vec[0] - sin_alpha * normal[0];
+  R[1] = cos_alpha * vec[1] - sin_alpha * normal[1];
+  R[2] = cos_alpha * vec[2] - sin_alpha * normal[2];
 
-  R[3] = sin_beta * local_x[0];
-  R[4] = sin_beta * local_x[1];
-  R[5] = sin_beta * local_x[2] + cos_beta;
+  R[3] = sin_alpha * vec[0] + cos_alpha * normal[0];
+  R[4] = sin_alpha * vec[1] + cos_alpha * normal[1];
+  R[5] = sin_alpha * vec[2] + cos_alpha * normal[2];
 
-  R[6] = local_z[0];
-  R[7] = local_z[1];
-  R[8] = local_z[2];
+  R[6] = rot_axis[0];
+  R[7] = rot_axis[1];
+  R[8] = rot_axis[2];
 
-  Mat33DotVec3(R, local_x, perturbed_normal);
+  // Perturb the normal vector.
+  Mat33DotVec3(R, normal, perturbed_normal);
 
   // Make sure the perturbed normal is still looking in the same direction as
   // the viewing direction, otherwise try again but with smaller perturbation.
@@ -621,6 +535,92 @@ __device__ inline void PerturbNormal(const int row, const int col,
   perturbed_normal[1] *= inv_norm;
   perturbed_normal[2] *= inv_norm;
 }
+
+
+// randomly perturb the azimuth and elevation angle of the current normal
+//__device__ inline void PerturbNormal(const int row, const int col,
+//                                     const float max_perturbation_angle,
+//                                     const float normal[3],
+//                                     curandState* rand_state,
+//                                     float perturbed_normal[3],
+//                                     const int num_trials = 0) {
+//  // perturb azimuth
+//  // rotate around the z-axis
+//  // the rotation matrix is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
+//  const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
+//  const float sin_alpha = sin(alpha);
+//  const float cos_alpha = cos(alpha);
+//
+//  const float local_x[3] = {
+//		  cos_alpha * normal[0] - sin_alpha * normal[1],
+//		  sin_alpha * normal[0] + cos_alpha * normal[1],
+//		  normal[2]
+//  };
+//
+//  // to perturb elevation, we need to first find the rotation axis
+//  // rotation axis is the cross product of local_x and original z axis
+//  // local_y = (0, 0, 1)
+//  float local_z[3] = {local_x[1], -local_x[0], 0.0f};
+//  const float inv_local_z_norm = rsqrt(DotProduct3(local_z, local_z));
+//  local_z[0] *= inv_local_z_norm;
+//  local_z[1] *= inv_local_z_norm;
+//  local_z[2] *= inv_local_z_norm;
+//
+//  // perturb evelation
+//  const float beta = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
+//  const float sin_beta = sin(beta);
+//  const float cos_beta = cos(beta);
+//
+//  // the rotation matrix in the coordinate frame (local_x, local_y, local_z)
+//  //      is (cos beta, -sin beta, 0; sin beta, cos beta, 0; 0, 0, 1)
+//  // we need to represent this rotation in the original coordinate frame
+//  // the rotation from (local_x, local_y, local_z) to the original one is (local_x, local_y, local_z)
+//  // essentially by multiply (cos beta, -sin beta, 0; sin beta, cos beta, 0; 0, 0, 1) and
+//  //      (local_x, local_y, local_z)^T
+//  float R[9];
+//  R[0] = cos_beta * local_x[0];
+//  R[1] = cos_beta * local_x[1];
+//  R[2] = cos_beta * local_x[2] - sin_beta;
+//
+//  R[3] = sin_beta * local_x[0];
+//  R[4] = sin_beta * local_x[1];
+//  R[5] = sin_beta * local_x[2] + cos_beta;
+//
+//  R[6] = local_z[0];
+//  R[7] = local_z[1];
+//  R[8] = local_z[2];
+//
+//  Mat33DotVec3(R, local_x, perturbed_normal);
+//
+//  // Make sure the perturbed normal is still looking in the same direction as
+//  // the viewing direction, otherwise try again but with smaller perturbation.
+//  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+//                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+//  // rotate view_ray to the reference coordinate frame
+//  float view_ray_scene[3];
+//  const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
+//  								ref_R[1], ref_R[4], ref_R[7],
+//									ref_R[2], ref_R[5], ref_R[8]};
+//  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
+//  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
+//    const int kMaxNumTrials = 3;
+//    if (num_trials < kMaxNumTrials) {
+//      PerturbNormal(row, col, 0.5f * max_perturbation_angle, normal, rand_state,
+//                    perturbed_normal, num_trials + 1);
+//      return;
+//    } else {
+//      perturbed_normal[0] = normal[0];
+//      perturbed_normal[1] = normal[1];
+//      perturbed_normal[2] = normal[2];
+//    }
+//  }
+//
+//  // Make sure normal has unit norm.
+//  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
+//  perturbed_normal[0] *= inv_norm;
+//  perturbed_normal[1] *= inv_norm;
+//  perturbed_normal[2] *= inv_norm;
+//}
 
 // Transfer depth on plane from viewing ray at row1 to row2. The returned
 // depth is the intersection of the viewing ray through row2 with the plane
