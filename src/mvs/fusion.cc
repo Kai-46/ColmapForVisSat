@@ -335,17 +335,34 @@ void StereoFusion::Fuse() {
     // pixel has already been added and we need to check for consistency.
     if (traversal_depth > 0) {
       // Project reference point into current view.
-      const Eigen::Vector4f proj = P_.at(image_idx) * fused_ref_point;
+//      const Eigen::Vector4f proj = P_.at(image_idx) * fused_ref_point;
+//
+//      // Depth error of reference depth with current depth.
+//      // Depth is the inverse of the fourth component
+//      // const float depth_error = std::abs((proj(2)/proj(3) - depth) / depth);
+//
+//      // note that we use the absolute inverse_depth error
+//      const float depth_error = std::abs(proj(3)/proj(2) - 1.f/depth);
+//      if (depth_error > options_.max_depth_error) {
+//        continue;
+//      }
 
-      // Depth error of reference depth with current depth.
-      // Depth is the inverse of the fourth component
-      // const float depth_error = std::abs((proj(2)/proj(3) - depth) / depth);
-
-      // note that we use the absolute inverse_depth error
-      const float depth_error = std::abs(proj(3)/proj(2) - 1.f/depth);
-      if (depth_error > options_.max_depth_error) {
-        continue;
+      // check point location
+      const Eigen::Vector4f src_pixel(col, row, 1.0f, 1.0f/depth);
+      const Eigen::Vector4f src_point = inv_P_.at(image_idx) * src_pixel;
+      const Eigen::Vector3f src_point_xyz(src_point(0)/src_point(3),
+    		  	  	  	  	  	  	  	  src_point(1)/src_point(3),
+										  src_point(2)/src_point(3));
+      const Eigen::Vector3f fused_ref_point_xyz(fused_ref_point(0)/fused_ref_point(3),
+    		  	  	  	  	  	  	  	  	  	fused_ref_point(1)/fused_ref_point(3),
+											    fused_ref_point(2)/fused_ref_point(3));
+      const Eigen::Vector3f point_diff = fused_ref_point_xyz - src_point_xyz;
+      if (point_diff.norm() > options_.max_depth_error) {
+    	  continue;
       }
+
+      //Project reference point into current view.
+      const Eigen::Vector4f proj = P_.at(image_idx) * fused_ref_point;
 
       // Reprojection error reference point in the current view.
       const float col_diff = proj(0) / proj(2) - col;
