@@ -194,20 +194,20 @@ __device__ inline void Projection(const float mat[16],
   const float inv_z = 1.0f / (mat[8] * vec[0] + mat[9] * vec[1] + mat[10] * vec[2] + mat[11]);
   result[0] = inv_z * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2] * vec[2] + mat[3]);
   result[1] = inv_z * (mat[4] * vec[0] + mat[5] * vec[1] + mat[6] * vec[2] + mat[7]);
-  // we use w to denote projective depth
-  // return projective depth
-  result[2] = 1.0f / (inv_z * (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] * vec[2] + mat[15]));
+  // depth is now the fourth component
+  result[2] = inv_z * (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] * vec[2] + mat[15]);
 }
 
 // inverse projection
+// depth is now defined as the fourth component
 __device__ inline void InverseProjection(const float mat[16],
 									     const float vec[3],
 										 float result[3]) {
-  const float inv_depth = 1.0f / vec[2];
-  const float inv_fourth = 1.0f / (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] + mat[15] * inv_depth);
-  result[0] = inv_fourth * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2] + mat[3] * inv_depth);
-  result[1] = inv_fourth * (mat[4] * vec[0] + mat[5] * vec[1] + mat[6] + mat[7] * inv_depth);
-  result[2] = inv_fourth * (mat[8] * vec[0] + mat[9] * vec[1] + mat[10] + mat[11] * inv_depth);
+  const float depth = vec[2];
+  const float inv_fourth = 1.0f / (mat[12] * vec[0] + mat[13] * vec[1] + mat[14] + mat[15] * depth);
+  result[0] = inv_fourth * (mat[0] * vec[0] + mat[1] * vec[1] + mat[2] + mat[3] * depth);
+  result[1] = inv_fourth * (mat[4] * vec[0] + mat[5] * vec[1] + mat[6] + mat[7] * depth);
+  result[2] = inv_fourth * (mat[8] * vec[0] + mat[9] * vec[1] + mat[10] + mat[11] * depth);
 }
 
 // note that the returned point is in scene coordinate frame
@@ -351,11 +351,12 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
 
 // make the perturbation more robust to big mean depth
 __device__ inline float PerturbDepth(const float perturbation,
-                                    const float depth_uncertainty,
+                                     const float depth_uncertainty,
                                      const float depth,
                                      curandState* rand_state) {
   // const float depth_min = (1.0f - perturbation) * depth;
   // const float depth_max = (1.0f + perturbation) * depth;
+
   const float depth_min = depth - perturbation * depth_uncertainty;
   const float depth_max = depth + perturbation * depth_uncertainty;
   return GenerateRandomDepth(depth_min, depth_max, rand_state);
@@ -670,14 +671,13 @@ __device__ inline float PropagateDepth(const float depth1,
   const float rhs =-( normal1[0] * (point1[0] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[0] * col - ref_inv_P[1] * row2 - ref_inv_P[2]) + \
 	  	  	  	    normal1[1] * (point1[1] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[4] * col - ref_inv_P[5] * row2 - ref_inv_P[6]) + \
 				    normal1[2] * (point1[2] * (ref_inv_P[12] * col + ref_inv_P[13] * row2 + ref_inv_P[14]) - ref_inv_P[8] * col - ref_inv_P[9] * row2 - ref_inv_P[10]) );
-  // depth is the inverse of the fourth component
-  float depth2 = coeff / rhs;
+  // depth is now the fourth component
+  float depth2 = rhs / coeff;
 
   // make sure depth2 is not nan
   if (depth2 != depth2) {
-        depth2 = depth1;
+      depth2 = depth1;
   }
-
 
   // double check the correctness
   float point2[3];

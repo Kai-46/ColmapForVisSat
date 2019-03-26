@@ -348,7 +348,7 @@ void StereoFusion::Fuse() {
 //      }
 
       // check point location
-      const Eigen::Vector4f src_pixel(col, row, 1.0f, 1.0f/depth);
+      const Eigen::Vector4f src_pixel(col, row, 1.0f, depth);
       const Eigen::Vector4f src_point = inv_P_.at(image_idx) * src_pixel;
       const Eigen::Vector3f src_point_xyz(src_point(0)/src_point(3),
     		  	  	  	  	  	  	  	  src_point(1)/src_point(3),
@@ -396,7 +396,7 @@ void StereoFusion::Fuse() {
     // Determine 3D location of current depth value.
     const Eigen::Vector4f xyz_homo =
         inv_P_.at(image_idx) *
-        Eigen::Vector4f(col, row, 1.0f, 1.0f / depth);
+        Eigen::Vector4f(col, row, 1.0f, depth);
     const Eigen::Vector3f xyz(xyz_homo(0)/xyz_homo(3), xyz_homo(1)/xyz_homo(3), xyz_homo(2)/xyz_homo(3));
 
     // Read the color of the pixel.

@@ -135,8 +135,8 @@ float Image::GetDepth(double x, double y, double z) const {
 	  const Eigen::Matrix<double, 4, 1> X(x, y, z, 1.0);
 
 	  Eigen::Matrix<double, 4, 1> result = P_4by4 * X;
-	  // inverse of the fourth component
-	  double depth = result[2] / result[3];
+	  // depth is the fourth component
+	  double depth = result[3] / result[2];
 
 	  // low precision output
 	  return (float) depth;

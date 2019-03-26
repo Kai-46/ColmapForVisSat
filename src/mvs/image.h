@@ -49,8 +49,6 @@ namespace mvs {
 class Image {
  public:
 //  Image();
-  // if not passing P and inv_P, then they're automatically induced from K, R, t
-  // in some cases, this might not be appropriate, as you might need to compute P and inv_P with high precision
   Image(const std::string& path, const size_t width, const size_t height,
         const double K[9], const double R[9], const double T[3]);
 
@@ -74,6 +72,7 @@ class Image {
   // high-precision output
   void GetCDouble(double C[3]) const;
   void GetKDouble(double K[9]) const;
+  void GetPinvPDouble(double P[16], double inv_P[16]) const;
 
   // low-precision output
   float GetDepth(double x, double y, double z) const;
@@ -82,10 +81,7 @@ class Image {
   void GetC(float C[3]) const;
   void GetPinvP(float P[16], float inv_P[16]) const;
 
-  void GetPinvPDouble(double P[16], double inv_P[16]) const;
-
   void Rotate90Multi_test(int cnt) const;
-
   void Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
   void Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
   void Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
@@ -99,7 +95,7 @@ class Image {
   mutable double K_[9];
   double R_[9];
   double T_[3];
-  double last_row_[4] = {0., 0., 0., 1.};	// last row of the 4 by 4 projection matrix, default value
+  double last_row_[4];	// last row of the 4 by 4 projection matrix
   Bitmap bitmap_;
 };
 
