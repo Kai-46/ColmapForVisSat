@@ -303,8 +303,8 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 //     const float kMaxPercentile = 0.99f;
     
     // let's be more conservative
-    const float kMinPercentile = 0.02f;
-    const float kMaxPercentile = 0.98f;
+    const float kMinPercentile = 0.01f;
+    const float kMaxPercentile = 0.99f;
     
     depth_range.first = image_depths[image_depths.size() * kMinPercentile];
     depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
@@ -324,16 +324,17 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
     // const float kStretchRatio = 0.2;
     // const float stretch = kStretchRatio * inv_depth_range;
 
-    const float stretch = 5;	// 5 meters
+    const float lower_stretch = 10;	// 10 meters
+    const float upper_stretch = 20;
 
-    const float min_depth_new = depth_range.first - stretch;
-    const float max_depth_new = depth_range.second + stretch;
+    const float min_depth_new = depth_range.first - lower_stretch;
+    const float max_depth_new = depth_range.second + upper_stretch;
     if (max_depth_new > min_depth_new) {
         depth_range.first = min_depth_new;
         depth_range.second = max_depth_new;
         std::cout << "image id: " << image_idx << ", depth range: "
         		<< depth_range.first << ", " << depth_range.second
-				<< ", stretch: " << stretch << std::endl;
+				<< ", lower_stretch: " << lower_stretch << ", upper_stretch: " << upper_stretch << std::endl;
     } else {
     	std::cout << "image id: " << image_idx << ", depth range: "
         		<< depth_range.first << ", " << depth_range.second <<

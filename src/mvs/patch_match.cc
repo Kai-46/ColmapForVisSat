@@ -230,27 +230,27 @@ void PatchMatchController::Run() {
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
-//  if (options_.geom_consistency && !options_.use_exist_photom) {
-//    auto photometric_options = options_;
-//    photometric_options.geom_consistency = false;
-//    photometric_options.filter = false;
-//
-//    for (size_t problem_idx = 0; problem_idx < problems_.size();
-//         ++problem_idx) {
-//      thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
-//                            photometric_options, problem_idx);
-//    }
-//
-//    thread_pool_->Wait();
-//  }
-//
-//  for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
-//    thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_,
-//                          problem_idx);
-//  }
+  if (options_.geom_consistency && !options_.use_exist_photom) {
+    auto photometric_options = options_;
+    photometric_options.geom_consistency = false;
+    photometric_options.filter = false;
+
+    for (size_t problem_idx = 0; problem_idx < problems_.size();
+         ++problem_idx) {
+      thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
+                            photometric_options, problem_idx);
+    }
+
+    thread_pool_->Wait();
+  }
+
+  for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
+    thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_,
+                          problem_idx);
+  }
 
   // for debug
-  thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_, (size_t) 0);
+//  thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_, (size_t) 0);
 
   thread_pool_->Wait();
 

@@ -681,7 +681,7 @@ __device__ inline float PropagateDepth(const float depth1,
   float depth2 = rhs / coeff;
 
   // debug
-  printf("depth 1: %.6e, depth 2: %.6e\n", depth1, depth2);
+//  printf("depth 1: %.6e, depth 2: %.6e\n", depth1, depth2);
 
   // make sure depth2 is not nan
   if (depth2 != depth2) {
