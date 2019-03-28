@@ -355,8 +355,8 @@ __device__ inline float PerturbDepth(const float perturbation,
 									 const float global_depth_max,
                                      const float depth,
                                      curandState* rand_state) {
-  const float depth_min = depth - perturbation * (global_depth_max - global_depth_min);
-  const float depth_max = depth + perturbation * (global_depth_max - global_depth_min);
+  float depth_min = depth - perturbation * (global_depth_max - global_depth_min);
+  float depth_max = depth + perturbation * (global_depth_max - global_depth_min);
   // clamp
   if (depth_min < global_depth_min) {
 	  depth_min = global_depth_min;
