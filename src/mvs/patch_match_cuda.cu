@@ -351,14 +351,20 @@ __device__ inline void GenerateRandomNormal(const int row, const int col,
 
 // make the perturbation more robust to big mean depth
 __device__ inline float PerturbDepth(const float perturbation,
-                                     const float depth_uncertainty,
+                                     const float global_depth_min,
+									 const float global_depth_max,
                                      const float depth,
                                      curandState* rand_state) {
-  // const float depth_min = (1.0f - perturbation) * depth;
-  // const float depth_max = (1.0f + perturbation) * depth;
+  const float depth_min = depth - perturbation * (global_depth_max - global_depth_min);
+  const float depth_max = depth + perturbation * (global_depth_max - global_depth_min);
+  // clamp
+  if (depth_min < global_depth_min) {
+	  depth_min = global_depth_min;
+  }
+  if (depth_max > global_depth_max) {
+	  depth_max = global_depth_max;
+  }
 
-  const float depth_min = depth - perturbation * depth_uncertainty;
-  const float depth_max = depth + perturbation * depth_uncertainty;
   return GenerateRandomDepth(depth_min, depth_max, rand_state);
 }
 
@@ -663,7 +669,7 @@ __device__ inline float PropagateDepth(const float depth1,
   float point1[3];
   ComputePointAtDepth(row1, col, depth1, point1);
 
-  // collect co-efficients for inverse depth of pixel (col, row2)
+  // collect co-efficients for the depth of pixel (col, row2)
   const float coeff = normal1[0] * (point1[0] * ref_inv_P[15] - ref_inv_P[3]) + \
 		  	  	  	  normal1[1] * (point1[1] * ref_inv_P[15] - ref_inv_P[7]) + \
 					  normal1[2] * (point1[2] * ref_inv_P[15] - ref_inv_P[11]);
@@ -1454,7 +1460,7 @@ __global__ void SweepFromTopToBottom(
 
     // Generate random parameters.
     rand_param_state.depth =
-        PerturbDepth(options.perturbation, options.depth_max - options.depth_min, curr_param_state.depth, &rand_state);
+        PerturbDepth(options.perturbation, options.depth_min, options.depth_max, curr_param_state.depth, &rand_state);
     PerturbNormal(row, col, options.perturbation * M_PI,
                   curr_param_state.normal, &rand_state,
                   rand_param_state.normal);

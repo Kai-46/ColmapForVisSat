@@ -230,24 +230,24 @@ void PatchMatchController::Run() {
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
-  if (options_.geom_consistency && !options_.use_exist_photom) {
-    auto photometric_options = options_;
-    photometric_options.geom_consistency = false;
-    photometric_options.filter = false;
-
-    for (size_t problem_idx = 0; problem_idx < problems_.size();
-         ++problem_idx) {
-      thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
-                            photometric_options, problem_idx);
-    }
-
-    thread_pool_->Wait();
-  }
-
-  for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
-    thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_,
-                          problem_idx);
-  }
+//  if (options_.geom_consistency && !options_.use_exist_photom) {
+//    auto photometric_options = options_;
+//    photometric_options.geom_consistency = false;
+//    photometric_options.filter = false;
+//
+//    for (size_t problem_idx = 0; problem_idx < problems_.size();
+//         ++problem_idx) {
+//      thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
+//                            photometric_options, problem_idx);
+//    }
+//
+//    thread_pool_->Wait();
+//  }
+//
+//  for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
+//    thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_,
+//                          problem_idx);
+//  }
 
   // for debug
    //thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_, (size_t) 0);
@@ -478,11 +478,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     patch_match_options.depth_max =
         depth_ranges_.at(problem.ref_image_idx).second;
 
-    // no need to have depth_min and depth_max greater than zero now
-//    CHECK(patch_match_options.depth_min > 0 &&
-//          patch_match_options.depth_max > 0)
-//        << " - You must manually set the minimum and maximum depth, since no "
-//           "sparse model is provided in the workspace.";
+    CHECK(patch_match_options.depth_min > 0 &&
+          patch_match_options.depth_max > 0)
+        << " - You must manually set the minimum and maximum depth, since no "
+           "sparse model is provided in the workspace.";
   }
 
   patch_match_options.gpu_index = std::to_string(gpu_index);
