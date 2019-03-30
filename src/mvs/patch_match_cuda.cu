@@ -736,128 +736,128 @@ __device__ inline void ComputeViewingAngles(const float point[3],
 
 // already numeric stable; however need to change the notion of depth
 // reference R, t
-//__device__ inline void ComposeHomography(const int image_idx, const int row,
-//                                         const int col, const float depth,
-//                                         const float normal[3], float H[9]) {
-//  // Calibration of source image.
-//  float K[4];
-//  for (int i = 0; i < 4; ++i) {
-//    K[i] = tex2D(poses_texture, i, image_idx);
-//  }
-//
-//  // Relative rotation between reference and source image.
-//  float R[9];
-//  for (int i = 0; i < 9; ++i) {
-//    R[i] = tex2D(poses_texture, i + 4, image_idx);
-//  }
-//
-//  // Relative translation between reference and source image.
-//  float T[3];
-//  for (int i = 0; i < 3; ++i) {
-//    T[i] = tex2D(poses_texture, i + 13, image_idx);
-//  }
-//
-//  float point[3];
-//  ComputePointAtDepth(row, col, depth, point);
-//
-//  // note that a plane is written as n'X-d=0
-//  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
-//  const float inv_dist = 1.0f / dist;
-//
-//  // change the normal vector to the reference image camera
-//  // in order to compute the homography
-//  float normal_ref[3];
-//  Mat33DotVec3(ref_R, normal, normal_ref);
-//
-//  const float inv_dist_N0 = inv_dist * normal_ref[0];
-//  const float inv_dist_N1 = inv_dist * normal_ref[1];
-//  const float inv_dist_N2 = inv_dist * normal_ref[2];
-//
-//  // for debug, let's check whether in the reference coordinate frame n'x-d=0 hold
-////  float point_ref[3];
-////  Mat33DotVec3(ref_R, point, point_ref);
-////  point_ref[0] += ref_T[0];
-////  point_ref[1] += ref_T[1];
-////  point_ref[2] += ref_T[2];
-////  float tmp = DotProduct3(point_ref, normal_ref) - dist;
-////  if (abs(tmp) > 1e-6f) {
-////	  printf("\nwhat the heck, tmp: %.6e\n", tmp);
-////  }
-//
-//  // Homography as H = K * (R + T * n' / d) * Kref^-1
-//  // Make sure in the reference coordinate frame n'x-d=0
-//  H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-//		  K[1] * (R[6] + inv_dist_N0 * T[2]));
-//  H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-//                         K[1] * (R[7] + inv_dist_N1 * T[2]));
-//  H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
-//         K[1] * (R[8] + inv_dist_N2 * T[2]) +
-//         ref_inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-//                         K[1] * (R[6] + inv_dist_N0 * T[2])) +
-//         ref_inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-//                         K[1] * (R[7] + inv_dist_N1 * T[2]));
-//  H[3] = ref_inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-//                         K[3] * (R[6] + inv_dist_N0 * T[2]));
-//  H[4] = ref_inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-//                         K[3] * (R[7] + inv_dist_N1 * T[2]));
-//  H[5] = K[2] * (R[5] + inv_dist_N2 * T[1]) +
-//         K[3] * (R[8] + inv_dist_N2 * T[2]) +
-//         ref_inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-//                         K[3] * (R[6] + inv_dist_N0 * T[2])) +
-//         ref_inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-//                         K[3] * (R[7] + inv_dist_N1 * T[2]));
-//  H[6] = ref_inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
-//  H[7] = ref_inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
-//  H[8] = R[8] + ref_inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
-//         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
-//}
-
-
-// a more numerically stable way to compose homography
 __device__ inline void ComposeHomography(const int image_idx, const int row,
                                          const int col, const float depth,
                                          const float normal[3], float H[9]) {
-  // Extract projection matrices for source image.
-  float P[16];
-  for (int i = 0; i < 16; ++i) {
-	P[i] = tex2D(poses_texture, i + 19, image_idx);
+  // Calibration of source image.
+  float K[4];
+  for (int i = 0; i < 4; ++i) {
+    K[i] = tex2D(poses_texture, i, image_idx);
   }
 
-  // compute the plane n^Tx+c=0
+  // Relative rotation between reference and source image.
+  float R[9];
+  for (int i = 0; i < 9; ++i) {
+    R[i] = tex2D(poses_texture, i + 4, image_idx);
+  }
+
+  // Relative translation between reference and source image.
+  float T[3];
+  for (int i = 0; i < 3; ++i) {
+    T[i] = tex2D(poses_texture, i + 13, image_idx);
+  }
+
   float point[3];
   ComputePointAtDepth(row, col, depth, point);
-  const float c = -DotProduct3(point, normal);
 
-  // compute the 1 by 4 vector [n; c]^T ref_inv_P
-  float vec_tmp[4];
-  const float plane[4] = {normal[0], normal[1], normal[2], c};
-  Vec4DotMat44(plane, ref_inv_P, vec_tmp);
+  // note that a plane is written as n'X-d=0
+  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
+  const float inv_dist = 1.0f / dist;
 
-  // compute matrix P ref_inv_P
-  float mat_tmp[16];
-  Mat44DotMat44(P, ref_inv_P, mat_tmp);
+  // change the normal vector to the reference image camera
+  // in order to compute the homography
+  float normal_ref[3];
+  Mat33DotVec3(ref_R, normal, normal_ref);
 
-  // the first three components of the fourth column of mat_tmp
-  const float vec_a[3] = {-vec_tmp[0]/vec_tmp[3], -vec_tmp[1]/vec_tmp[3], -vec_tmp[2]/vec_tmp[3]};
-  const float vec_b[3] = {mat_tmp[3], mat_tmp[7], mat_tmp[11]};
-  const float mat_A[9] = {
-		  mat_tmp[0], mat_tmp[1], mat_tmp[2],
-		  mat_tmp[4], mat_tmp[5], mat_tmp[6],
-		  mat_tmp[8], mat_tmp[9], mat_tmp[10]
-  };
+  const float inv_dist_N0 = inv_dist * normal_ref[0];
+  const float inv_dist_N1 = inv_dist * normal_ref[1];
+  const float inv_dist_N2 = inv_dist * normal_ref[2];
 
-  H[0] = mat_A[0] + vec_b[0] * vec_a[0];
-  H[1] = mat_A[1] + vec_b[0] * vec_a[1];
-  H[2] = mat_A[2] + vec_b[0] * vec_a[2];
+  // for debug, let's check whether in the reference coordinate frame n'x-d=0 hold
+//  float point_ref[3];
+//  Mat33DotVec3(ref_R, point, point_ref);
+//  point_ref[0] += ref_T[0];
+//  point_ref[1] += ref_T[1];
+//  point_ref[2] += ref_T[2];
+//  float tmp = DotProduct3(point_ref, normal_ref) - dist;
+//  if (abs(tmp) > 1e-6f) {
+//	  printf("\nwhat the heck, tmp: %.6e\n", tmp);
+//  }
 
-  H[3] = mat_A[3] + vec_b[1] * vec_a[0];
-  H[4] = mat_A[4] + vec_b[1] * vec_a[1];
-  H[5] = mat_A[5] + vec_b[1] * vec_a[2];
-
-  H[6] = mat_A[6] + vec_b[2] * vec_a[0];
-  H[7] = mat_A[7] + vec_b[2] * vec_a[1];
-  H[8] = mat_A[8] + vec_b[2] * vec_a[2];
+  // Homography as H = K * (R + T * n' / d) * Kref^-1
+  // Make sure in the reference coordinate frame n'x-d=0
+  H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+		  K[1] * (R[6] + inv_dist_N0 * T[2]));
+  H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+                         K[1] * (R[7] + inv_dist_N1 * T[2]));
+  H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
+         K[1] * (R[8] + inv_dist_N2 * T[2]) +
+         ref_inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+                         K[1] * (R[6] + inv_dist_N0 * T[2])) +
+         ref_inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+                         K[1] * (R[7] + inv_dist_N1 * T[2]));
+  H[3] = ref_inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+                         K[3] * (R[6] + inv_dist_N0 * T[2]));
+  H[4] = ref_inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+                         K[3] * (R[7] + inv_dist_N1 * T[2]));
+  H[5] = K[2] * (R[5] + inv_dist_N2 * T[1]) +
+         K[3] * (R[8] + inv_dist_N2 * T[2]) +
+         ref_inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+                         K[3] * (R[6] + inv_dist_N0 * T[2])) +
+         ref_inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+                         K[3] * (R[7] + inv_dist_N1 * T[2]));
+  H[6] = ref_inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
+  H[7] = ref_inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
+  H[8] = R[8] + ref_inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
+         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
 }
+
+
+// a more numerically stable way to compose homography
+//__device__ inline void ComposeHomography(const int image_idx, const int row,
+//                                         const int col, const float depth,
+//                                         const float normal[3], float H[9]) {
+//  // Extract projection matrices for source image.
+//  float P[16];
+//  for (int i = 0; i < 16; ++i) {
+//	P[i] = tex2D(poses_texture, i + 19, image_idx);
+//  }
+//
+//  // compute the plane n^Tx+c=0
+//  float point[3];
+//  ComputePointAtDepth(row, col, depth, point);
+//  const float c = -DotProduct3(point, normal);
+//
+//  // compute the 1 by 4 vector [n; c]^T ref_inv_P
+//  float vec_tmp[4];
+//  const float plane[4] = {normal[0], normal[1], normal[2], c};
+//  Vec4DotMat44(plane, ref_inv_P, vec_tmp);
+//
+//  // compute matrix P ref_inv_P
+//  float mat_tmp[16];
+//  Mat44DotMat44(P, ref_inv_P, mat_tmp);
+//
+//  // the first three components of the fourth column of mat_tmp
+//  const float vec_a[3] = {-vec_tmp[0]/vec_tmp[3], -vec_tmp[1]/vec_tmp[3], -vec_tmp[2]/vec_tmp[3]};
+//  const float vec_b[3] = {mat_tmp[3], mat_tmp[7], mat_tmp[11]};
+//  const float mat_A[9] = {
+//		  mat_tmp[0], mat_tmp[1], mat_tmp[2],
+//		  mat_tmp[4], mat_tmp[5], mat_tmp[6],
+//		  mat_tmp[8], mat_tmp[9], mat_tmp[10]
+//  };
+//
+//  H[0] = mat_A[0] + vec_b[0] * vec_a[0];
+//  H[1] = mat_A[1] + vec_b[0] * vec_a[1];
+//  H[2] = mat_A[2] + vec_b[0] * vec_a[2];
+//
+//  H[3] = mat_A[3] + vec_b[1] * vec_a[0];
+//  H[4] = mat_A[4] + vec_b[1] * vec_a[1];
+//  H[5] = mat_A[5] + vec_b[1] * vec_a[2];
+//
+//  H[6] = mat_A[6] + vec_b[2] * vec_a[0];
+//  H[7] = mat_A[7] + vec_b[2] * vec_a[1];
+//  H[8] = mat_A[8] + vec_b[2] * vec_a[2];
+//}
 
 
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
