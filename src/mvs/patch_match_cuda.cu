@@ -371,150 +371,56 @@ __device__ inline float PerturbDepth(const float perturbation,
 }
 
 // colmap's normal perturbation scheme
-__device__ inline void PerturbNormal(const int row, const int col,
-                                     const float perturbation,
-                                     const float normal[3],
-                                     curandState* rand_state,
-                                     float perturbed_normal[3],
-                                     const int num_trials = 0) {
-  // Perturbation rotation angles.
-  const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-  const float a3 = (curand_uniform(rand_state) - 0.5f) * perturbation;
-
-  const float sin_a1 = sin(a1);
-  const float sin_a2 = sin(a2);
-  const float sin_a3 = sin(a3);
-  const float cos_a1 = cos(a1);
-  const float cos_a2 = cos(a2);
-  const float cos_a3 = cos(a3);
-
-  // R = Rx * Ry * Rz
-  float R[9];
-  R[0] = cos_a2 * cos_a3;
-  R[1] = -cos_a2 * sin_a3;
-  R[2] = sin_a2;
-  R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
-  R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
-  R[5] = -cos_a2 * sin_a1;
-  R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
-  R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
-  R[8] = cos_a1 * cos_a2;
-
-  // Perturb the normal vector.
-  Mat33DotVec3(R, normal, perturbed_normal);
-
-  // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction, otherwise try again but with smaller perturbation.
-//  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-//                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
-//  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
-//    const int kMaxNumTrials = 3;
-//    if (num_trials < kMaxNumTrials) {
-//      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
-//                    perturbed_normal, num_trials + 1);
-//      return;
-//    } else {
-//      perturbed_normal[0] = normal[0];
-//      perturbed_normal[1] = normal[1];
-//      perturbed_normal[2] = normal[2];
-//      return;
-//    }
-//  }
-
-  // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction, otherwise try again but with smaller perturbation.
-  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
-                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
-  // rotate view_ray to the reference coordinate frame
-  float view_ray_scene[3];
-  const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
-  								ref_R[1], ref_R[4], ref_R[7],
-									ref_R[2], ref_R[5], ref_R[8]};
-  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
-  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
-    const int kMaxNumTrials = 3;
-    if (num_trials < kMaxNumTrials) {
-      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
-                    perturbed_normal, num_trials + 1);
-      return;
-    } else {
-      perturbed_normal[0] = normal[0];
-      perturbed_normal[1] = normal[1];
-      perturbed_normal[2] = normal[2];
-    }
-  }
-
-  // Make sure normal has unit norm.
-  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
-  perturbed_normal[0] *= inv_norm;
-  perturbed_normal[1] *= inv_norm;
-  perturbed_normal[2] *= inv_norm;
-}
-
-
-//// sampling from a cone that centers around the current normal vector
 //__device__ inline void PerturbNormal(const int row, const int col,
-//                                     const float max_perturbation_angle,
+//                                     const float perturbation,
 //                                     const float normal[3],
 //                                     curandState* rand_state,
 //                                     float perturbed_normal[3],
 //                                     const int num_trials = 0) {
-//  // uniformly sample from a cone that centers around the normal vector
+//  // Perturbation rotation angles.
+//  const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
+//  const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
+//  const float a3 = (curand_uniform(rand_state) - 0.5f) * perturbation;
 //
-//  // we first define a local coordinate frame whose z axis aligns with the normal direction
-//  // assume the z component of normal is always positive
-//  float local_x[3] = {0.0f, normal[2], -normal[1]};
-//  // normalize local_x
-//  const float inv_local_x_norm = rsqrt(DotProduct3(local_x, local_x));
-//  local_x[0] *= inv_local_x_norm;
-//  local_x[1] *= inv_local_x_norm;
-//  local_x[2] *= inv_local_x_norm;
-//  // compute local y direction as z\cross product x
-//  float local_y[3];
-//  CrossProduct3(normal, local_x, local_y);
+//  const float sin_a1 = sin(a1);
+//  const float sin_a2 = sin(a2);
+//  const float sin_a3 = sin(a3);
+//  const float cos_a1 = cos(a1);
+//  const float cos_a2 = cos(a2);
+//  const float cos_a3 = cos(a3);
 //
-//  // generate a unit vector on the local x-y plane
-//  const float theta = curand_uniform(rand_state) * 2 * M_PI;
-//  const float cos_theta = cos(theta);
-//  const float sin_theta = sin(theta);
-//  // in the local coordinate frame, the vector has coordinate (cos theta, sin theta, 0)
-//  // we need to convert it back to the original coordinate frame
-//  // note that the rotation from the local coordinate frame to the original one is (local_x, local_y, local_z)
-//  const float vec[3] = { cos_theta * local_x[0] + sin_theta * local_y[0],
-//		  cos_theta * local_x[1] + sin_theta * local_y[1],
-//		  cos_theta * local_x[2] + sin_theta * local_y[2] };
-//
-//  // compute cross product between vec and normal to get the rotation axis
-//  float rot_axis[3];
-//  CrossProduct3(vec, normal, rot_axis);
-//
-//  // sample a perturbation angle around the rotation axis
-//  const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
-//
-//  // the rotation matrix in the coordinate frame (vec, normal, rot_axis)
-//  //      is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
-//  // we need to represent this rotation in the original coordinate frame
-//  // the rotation from (vec, normal, rot_axis) to the original one is (vec, normal, rot_axis)
-//  // essentially by multiply (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1) and
-//  //      (vec, normal, rot_axis)^T
+//  // R = Rx * Ry * Rz
 //  float R[9];
-//  const float cos_alpha = cos(alpha);
-//  const float sin_alpha = sin(alpha);
-//  R[0] = cos_alpha * vec[0] - sin_alpha * normal[0];
-//  R[1] = cos_alpha * vec[1] - sin_alpha * normal[1];
-//  R[2] = cos_alpha * vec[2] - sin_alpha * normal[2];
-//
-//  R[3] = sin_alpha * vec[0] + cos_alpha * normal[0];
-//  R[4] = sin_alpha * vec[1] + cos_alpha * normal[1];
-//  R[5] = sin_alpha * vec[2] + cos_alpha * normal[2];
-//
-//  R[6] = rot_axis[0];
-//  R[7] = rot_axis[1];
-//  R[8] = rot_axis[2];
+//  R[0] = cos_a2 * cos_a3;
+//  R[1] = -cos_a2 * sin_a3;
+//  R[2] = sin_a2;
+//  R[3] = cos_a1 * sin_a3 + cos_a3 * sin_a1 * sin_a2;
+//  R[4] = cos_a1 * cos_a3 - sin_a1 * sin_a2 * sin_a3;
+//  R[5] = -cos_a2 * sin_a1;
+//  R[6] = sin_a1 * sin_a3 - cos_a1 * cos_a3 * sin_a2;
+//  R[7] = cos_a3 * sin_a1 + cos_a1 * sin_a2 * sin_a3;
+//  R[8] = cos_a1 * cos_a2;
 //
 //  // Perturb the normal vector.
 //  Mat33DotVec3(R, normal, perturbed_normal);
+//
+//  // Make sure the perturbed normal is still looking in the same direction as
+//  // the viewing direction, otherwise try again but with smaller perturbation.
+////  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+////                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+////  if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
+////    const int kMaxNumTrials = 3;
+////    if (num_trials < kMaxNumTrials) {
+////      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
+////                    perturbed_normal, num_trials + 1);
+////      return;
+////    } else {
+////      perturbed_normal[0] = normal[0];
+////      perturbed_normal[1] = normal[1];
+////      perturbed_normal[2] = normal[2];
+////      return;
+////    }
+////  }
 //
 //  // Make sure the perturbed normal is still looking in the same direction as
 //  // the viewing direction, otherwise try again but with smaller perturbation.
@@ -529,7 +435,7 @@ __device__ inline void PerturbNormal(const int row, const int col,
 //  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
 //    const int kMaxNumTrials = 3;
 //    if (num_trials < kMaxNumTrials) {
-//      PerturbNormal(row, col, 0.5f * max_perturbation_angle, normal, rand_state,
+//      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
 //                    perturbed_normal, num_trials + 1);
 //      return;
 //    } else {
@@ -545,6 +451,100 @@ __device__ inline void PerturbNormal(const int row, const int col,
 //  perturbed_normal[1] *= inv_norm;
 //  perturbed_normal[2] *= inv_norm;
 //}
+
+
+// sampling from a cone that centers around the current normal vector
+__device__ inline void PerturbNormal(const int row, const int col,
+                                     const float max_perturbation_angle,
+                                     const float normal[3],
+                                     curandState* rand_state,
+                                     float perturbed_normal[3],
+                                     const int num_trials = 0) {
+  // uniformly sample from a cone that centers around the normal vector
+
+  // we first define a local coordinate frame whose z axis aligns with the normal direction
+  // assume the z component of normal is always positive
+  float local_x[3] = {0.0f, normal[2], -normal[1]};
+  // normalize local_x
+  const float inv_local_x_norm = rsqrt(DotProduct3(local_x, local_x));
+  local_x[0] *= inv_local_x_norm;
+  local_x[1] *= inv_local_x_norm;
+  local_x[2] *= inv_local_x_norm;
+  // compute local y direction as z\cross product x
+  float local_y[3];
+  CrossProduct3(normal, local_x, local_y);
+
+  // generate a unit vector on the local x-y plane
+  const float theta = curand_uniform(rand_state) * 2 * M_PI;
+  const float cos_theta = cos(theta);
+  const float sin_theta = sin(theta);
+  // in the local coordinate frame, the vector has coordinate (cos theta, sin theta, 0)
+  // we need to convert it back to the original coordinate frame
+  // note that the rotation from the local coordinate frame to the original one is (local_x, local_y, local_z)
+  const float vec[3] = { cos_theta * local_x[0] + sin_theta * local_y[0],
+		  cos_theta * local_x[1] + sin_theta * local_y[1],
+		  cos_theta * local_x[2] + sin_theta * local_y[2] };
+
+  // compute cross product between vec and normal to get the rotation axis
+  float rot_axis[3];
+  CrossProduct3(vec, normal, rot_axis);
+
+  // sample a perturbation angle around the rotation axis
+  const float alpha = (curand_uniform(rand_state) - 0.5) * 2 * max_perturbation_angle;
+
+  // the rotation matrix in the coordinate frame (vec, normal, rot_axis)
+  //      is (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1)
+  // we need to represent this rotation in the original coordinate frame
+  // the rotation from (vec, normal, rot_axis) to the original one is (vec, normal, rot_axis)
+  // essentially by multiply (cos alpha, -sin alpha, 0; sin alpha, cos alpha, 0; 0, 0, 1) and
+  //      (vec, normal, rot_axis)^T
+  float R[9];
+  const float cos_alpha = cos(alpha);
+  const float sin_alpha = sin(alpha);
+  R[0] = cos_alpha * vec[0] - sin_alpha * normal[0];
+  R[1] = cos_alpha * vec[1] - sin_alpha * normal[1];
+  R[2] = cos_alpha * vec[2] - sin_alpha * normal[2];
+
+  R[3] = sin_alpha * vec[0] + cos_alpha * normal[0];
+  R[4] = sin_alpha * vec[1] + cos_alpha * normal[1];
+  R[5] = sin_alpha * vec[2] + cos_alpha * normal[2];
+
+  R[6] = rot_axis[0];
+  R[7] = rot_axis[1];
+  R[8] = rot_axis[2];
+
+  // Perturb the normal vector.
+  Mat33DotVec3(R, normal, perturbed_normal);
+
+  // Make sure the perturbed normal is still looking in the same direction as
+  // the viewing direction, otherwise try again but with smaller perturbation.
+  const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
+                             ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
+  // rotate view_ray to the reference coordinate frame
+  float view_ray_scene[3];
+  const float ref_R_transpose[9] = {ref_R[0], ref_R[3], ref_R[6],
+  								ref_R[1], ref_R[4], ref_R[7],
+									ref_R[2], ref_R[5], ref_R[8]};
+  Mat33DotVec3(ref_R_transpose, view_ray, view_ray_scene);
+  if (DotProduct3(perturbed_normal, view_ray_scene) >= 0.0f) {
+    const int kMaxNumTrials = 3;
+    if (num_trials < kMaxNumTrials) {
+      PerturbNormal(row, col, 0.5f * max_perturbation_angle, normal, rand_state,
+                    perturbed_normal, num_trials + 1);
+      return;
+    } else {
+      perturbed_normal[0] = normal[0];
+      perturbed_normal[1] = normal[1];
+      perturbed_normal[2] = normal[2];
+    }
+  }
+
+  // Make sure normal has unit norm.
+  const float inv_norm = rsqrt(DotProduct3(perturbed_normal, perturbed_normal));
+  perturbed_normal[0] *= inv_norm;
+  perturbed_normal[1] *= inv_norm;
+  perturbed_normal[2] *= inv_norm;
+}
 
 
 // randomly perturb the azimuth and elevation angle of the current normal
@@ -736,130 +736,130 @@ __device__ inline void ComputeViewingAngles(const float point[3],
   *cos_triangulation_angle = DotProduct3(RX, SX) * RX_inv_norm * SX_inv_norm;
 }
 
-// already numeric stable; however need to change the notion of depth
-// reference R, t
-__device__ inline void ComposeHomography(const int image_idx, const int row,
-                                         const int col, const float depth,
-                                         const float normal[3], float H[9]) {
-  // Calibration of source image.
-  float K[4];
-  for (int i = 0; i < 4; ++i) {
-    K[i] = tex2D(poses_texture, i, image_idx);
-  }
-
-  // Relative rotation between reference and source image.
-  float R[9];
-  for (int i = 0; i < 9; ++i) {
-    R[i] = tex2D(poses_texture, i + 4, image_idx);
-  }
-
-  // Relative translation between reference and source image.
-  float T[3];
-  for (int i = 0; i < 3; ++i) {
-    T[i] = tex2D(poses_texture, i + 13, image_idx);
-  }
-
-  float point[3];
-  ComputePointAtDepth(row, col, depth, point);
-
-  // note that a plane is written as n'X-d=0
-  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
-  const float inv_dist = 1.0f / dist;
-
-  // change the normal vector to the reference image camera
-  // in order to compute the homography
-  float normal_ref[3];
-  Mat33DotVec3(ref_R, normal, normal_ref);
-
-  const float inv_dist_N0 = inv_dist * normal_ref[0];
-  const float inv_dist_N1 = inv_dist * normal_ref[1];
-  const float inv_dist_N2 = inv_dist * normal_ref[2];
-
-  // for debug, let's check whether in the reference coordinate frame n'x-d=0 hold
-//  float point_ref[3];
-//  Mat33DotVec3(ref_R, point, point_ref);
-//  point_ref[0] += ref_T[0];
-//  point_ref[1] += ref_T[1];
-//  point_ref[2] += ref_T[2];
-//  float tmp = DotProduct3(point_ref, normal_ref) - dist;
-//  if (abs(tmp) > 1e-6f) {
-//	  printf("\nwhat the heck, tmp: %.6e\n", tmp);
-//  }
-
-  // Homography as H = K * (R + T * n' / d) * Kref^-1
-  // Make sure in the reference coordinate frame n'x-d=0
-  H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-		  K[1] * (R[6] + inv_dist_N0 * T[2]));
-  H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-                         K[1] * (R[7] + inv_dist_N1 * T[2]));
-  H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
-         K[1] * (R[8] + inv_dist_N2 * T[2]) +
-         ref_inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
-                         K[1] * (R[6] + inv_dist_N0 * T[2])) +
-         ref_inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
-                         K[1] * (R[7] + inv_dist_N1 * T[2]));
-  H[3] = ref_inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-                         K[3] * (R[6] + inv_dist_N0 * T[2]));
-  H[4] = ref_inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-                         K[3] * (R[7] + inv_dist_N1 * T[2]));
-  H[5] = K[2] * (R[5] + inv_dist_N2 * T[1]) +
-         K[3] * (R[8] + inv_dist_N2 * T[2]) +
-         ref_inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
-                         K[3] * (R[6] + inv_dist_N0 * T[2])) +
-         ref_inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
-                         K[3] * (R[7] + inv_dist_N1 * T[2]));
-  H[6] = ref_inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
-  H[7] = ref_inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
-  H[8] = R[8] + ref_inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
-         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
-}
-
-
-// a more numerically stable way to compose homography
+//// already numeric stable; however need to change the notion of depth
+//// reference R, t
 //__device__ inline void ComposeHomography(const int image_idx, const int row,
 //                                         const int col, const float depth,
 //                                         const float normal[3], float H[9]) {
-//  // Extract projection matrices for source image.
-//  float P[16];
-//  for (int i = 0; i < 16; ++i) {
-//	P[i] = tex2D(poses_texture, i + 19, image_idx);
+//  // Calibration of source image.
+//  float K[4];
+//  for (int i = 0; i < 4; ++i) {
+//    K[i] = tex2D(poses_texture, i, image_idx);
 //  }
 //
-//  // compute the plane n^Tx+c=0
+//  // Relative rotation between reference and source image.
+//  float R[9];
+//  for (int i = 0; i < 9; ++i) {
+//    R[i] = tex2D(poses_texture, i + 4, image_idx);
+//  }
+//
+//  // Relative translation between reference and source image.
+//  float T[3];
+//  for (int i = 0; i < 3; ++i) {
+//    T[i] = tex2D(poses_texture, i + 13, image_idx);
+//  }
+//
 //  float point[3];
 //  ComputePointAtDepth(row, col, depth, point);
-//  const float c = -DotProduct3(point, normal);
 //
-//  // compute the 1 by 4 vector [n; c]^T ref_inv_P
-//  float vec_tmp[4];
-//  const float plane[4] = {normal[0], normal[1], normal[2], c};
-//  Vec4DotMat44(plane, ref_inv_P, vec_tmp);
+//  // note that a plane is written as n'X-d=0
+//  const float dist = -DotProduct3(ref_C, normal) + DotProduct3(point, normal);
+//  const float inv_dist = 1.0f / dist;
 //
-//  // compute matrix P ref_inv_P
-//  float mat_tmp[16];
-//  Mat44DotMat44(P, ref_inv_P, mat_tmp);
+//  // change the normal vector to the reference image camera
+//  // in order to compute the homography
+//  float normal_ref[3];
+//  Mat33DotVec3(ref_R, normal, normal_ref);
 //
-//  // the first three components of the fourth column of mat_tmp
-//  const float vec_a[3] = {-vec_tmp[0]/vec_tmp[3], -vec_tmp[1]/vec_tmp[3], -vec_tmp[2]/vec_tmp[3]};
-//  const float vec_b[3] = {mat_tmp[3], mat_tmp[7], mat_tmp[11]};
-//  const float mat_A[9] = {
-//		  mat_tmp[0], mat_tmp[1], mat_tmp[2],
-//		  mat_tmp[4], mat_tmp[5], mat_tmp[6],
-//		  mat_tmp[8], mat_tmp[9], mat_tmp[10]
-//  };
+//  const float inv_dist_N0 = inv_dist * normal_ref[0];
+//  const float inv_dist_N1 = inv_dist * normal_ref[1];
+//  const float inv_dist_N2 = inv_dist * normal_ref[2];
 //
-//  H[0] = mat_A[0] + vec_b[0] * vec_a[0];
-//  H[1] = mat_A[1] + vec_b[0] * vec_a[1];
-//  H[2] = mat_A[2] + vec_b[0] * vec_a[2];
+//  // for debug, let's check whether in the reference coordinate frame n'x-d=0 hold
+////  float point_ref[3];
+////  Mat33DotVec3(ref_R, point, point_ref);
+////  point_ref[0] += ref_T[0];
+////  point_ref[1] += ref_T[1];
+////  point_ref[2] += ref_T[2];
+////  float tmp = DotProduct3(point_ref, normal_ref) - dist;
+////  if (abs(tmp) > 1e-6f) {
+////	  printf("\nwhat the heck, tmp: %.6e\n", tmp);
+////  }
 //
-//  H[3] = mat_A[3] + vec_b[1] * vec_a[0];
-//  H[4] = mat_A[4] + vec_b[1] * vec_a[1];
-//  H[5] = mat_A[5] + vec_b[1] * vec_a[2];
-//
-//  H[6] = mat_A[6] + vec_b[2] * vec_a[0];
-//  H[7] = mat_A[7] + vec_b[2] * vec_a[1];
-//  H[8] = mat_A[8] + vec_b[2] * vec_a[2];
+//  // Homography as H = K * (R + T * n' / d) * Kref^-1
+//  // Make sure in the reference coordinate frame n'x-d=0
+//  H[0] = ref_inv_K[0] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+//		  K[1] * (R[6] + inv_dist_N0 * T[2]));
+//  H[1] = ref_inv_K[2] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+//                         K[1] * (R[7] + inv_dist_N1 * T[2]));
+//  H[2] = K[0] * (R[2] + inv_dist_N2 * T[0]) +
+//         K[1] * (R[8] + inv_dist_N2 * T[2]) +
+//         ref_inv_K[1] * (K[0] * (R[0] + inv_dist_N0 * T[0]) +
+//                         K[1] * (R[6] + inv_dist_N0 * T[2])) +
+//         ref_inv_K[3] * (K[0] * (R[1] + inv_dist_N1 * T[0]) +
+//                         K[1] * (R[7] + inv_dist_N1 * T[2]));
+//  H[3] = ref_inv_K[0] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+//                         K[3] * (R[6] + inv_dist_N0 * T[2]));
+//  H[4] = ref_inv_K[2] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+//                         K[3] * (R[7] + inv_dist_N1 * T[2]));
+//  H[5] = K[2] * (R[5] + inv_dist_N2 * T[1]) +
+//         K[3] * (R[8] + inv_dist_N2 * T[2]) +
+//         ref_inv_K[1] * (K[2] * (R[3] + inv_dist_N0 * T[1]) +
+//                         K[3] * (R[6] + inv_dist_N0 * T[2])) +
+//         ref_inv_K[3] * (K[2] * (R[4] + inv_dist_N1 * T[1]) +
+//                         K[3] * (R[7] + inv_dist_N1 * T[2]));
+//  H[6] = ref_inv_K[0] * (R[6] + inv_dist_N0 * T[2]);
+//  H[7] = ref_inv_K[2] * (R[7] + inv_dist_N1 * T[2]);
+//  H[8] = R[8] + ref_inv_K[1] * (R[6] + inv_dist_N0 * T[2]) +
+//         ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
 //}
+
+
+// a more numerically stable way to compose homography
+__device__ inline void ComposeHomography(const int image_idx, const int row,
+                                         const int col, const float depth,
+                                         const float normal[3], float H[9]) {
+  // Extract projection matrices for source image.
+  float P[16];
+  for (int i = 0; i < 16; ++i) {
+	P[i] = tex2D(poses_texture, i + 19, image_idx);
+  }
+
+  // compute the plane n^Tx+c=0
+  float point[3];
+  ComputePointAtDepth(row, col, depth, point);
+  const float c = -DotProduct3(point, normal);
+
+  // compute the 1 by 4 vector [n; c]^T ref_inv_P
+  float vec_tmp[4];
+  const float plane[4] = {normal[0], normal[1], normal[2], c};
+  Vec4DotMat44(plane, ref_inv_P, vec_tmp);
+
+  // compute matrix P ref_inv_P
+  float mat_tmp[16];
+  Mat44DotMat44(P, ref_inv_P, mat_tmp);
+
+  // the first three components of the fourth column of mat_tmp
+  const float vec_a[3] = {-vec_tmp[0]/vec_tmp[3], -vec_tmp[1]/vec_tmp[3], -vec_tmp[2]/vec_tmp[3]};
+  const float vec_b[3] = {mat_tmp[3], mat_tmp[7], mat_tmp[11]};
+  const float mat_A[9] = {
+		  mat_tmp[0], mat_tmp[1], mat_tmp[2],
+		  mat_tmp[4], mat_tmp[5], mat_tmp[6],
+		  mat_tmp[8], mat_tmp[9], mat_tmp[10]
+  };
+
+  H[0] = mat_A[0] + vec_b[0] * vec_a[0];
+  H[1] = mat_A[1] + vec_b[0] * vec_a[1];
+  H[2] = mat_A[2] + vec_b[0] * vec_a[2];
+
+  H[3] = mat_A[3] + vec_b[1] * vec_a[0];
+  H[4] = mat_A[4] + vec_b[1] * vec_a[1];
+  H[5] = mat_A[5] + vec_b[1] * vec_a[2];
+
+  H[6] = mat_A[6] + vec_b[2] * vec_a[0];
+  H[7] = mat_A[7] + vec_b[2] * vec_a[1];
+  H[8] = mat_A[8] + vec_b[2] * vec_a[2];
+}
 
 
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
