@@ -357,15 +357,17 @@ __device__ inline float PerturbDepth(const float perturbation,
                                      curandState* rand_state) {
   float depth_min = depth - perturbation * (global_depth_max - global_depth_min);
   float depth_max = depth + perturbation * (global_depth_max - global_depth_min);
+
+  float depth_new = GenerateRandomDepth(depth_min, depth_max, rand_state);
   // clamp
-  if (depth_min < global_depth_min) {
-	  depth_min = global_depth_min;
+  if (depth_new < global_depth_min) {
+	  depth_new = global_depth_min;
   }
-  if (depth_max > global_depth_max) {
-	  depth_max = global_depth_max;
+  if (depth_new > global_depth_max) {
+	  depth_new = global_depth_max;
   }
 
-  return GenerateRandomDepth(depth_min, depth_max, rand_state);
+  return depth_new;
 }
 
 // colmap's normal perturbation scheme
