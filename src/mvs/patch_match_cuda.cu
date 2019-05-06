@@ -929,8 +929,8 @@ struct PhotoConsistencyCostComputer {
     for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
       for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
         const float inv_z = 1.0f / z;
-        const float norm_col_src = inv_z * col_src;
-        const float norm_row_src = inv_z * row_src;
+        const float norm_col_src = inv_z * col_src + 0.5f;	// half pixel is due to GPU's texture memory
+        const float norm_row_src = inv_z * row_src + 0.5f;
         const float ref_color = local_ref_image[ref_image_idx];
         const float src_color = tex2DLayered(src_images_texture, norm_col_src,
                                              norm_row_src, src_image_idx);
@@ -1022,8 +1022,8 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
 
   // Extract depth in source image.
   // why would we need a half pixel here
-  const float src_depth = tex2DLayered(src_depth_maps_texture, src_pixel[0],
-                                       src_pixel[1], image_idx);
+  const float src_depth = tex2DLayered(src_depth_maps_texture, src_pixel[0] + 0.5f,
+                                       src_pixel[1] + 0.5f, image_idx);
 
   // Projection outside of source image.
   if (src_depth <= -1e19f) {
