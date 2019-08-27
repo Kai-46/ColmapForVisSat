@@ -49,6 +49,7 @@
 
 #include <Eigen/Core>
 #include <fstream>
+#include <sstream>
 #define PRECISION 17
 
 using namespace colmap;
@@ -187,11 +188,29 @@ int RunBundleAdjuster(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
+  // @kai print statistics before bundle adjustment
+  std::stringstream buffer;
+  buffer << "\nBefore Global Bundle Adjustment:";
+  buffer << "\n# of 3D points: " << reconstruction.NumPoints3D();
+  buffer << "\n# of Images Registered: " << reconstruction.NumRegImages() << "/" << reconstruction.NumImages();
+  buffer << "\nAvg. Track Length: " << reconstruction.ComputeMeanTrackLength();
+  buffer << "\nAvg. Per-view Triangulated Observations: " << reconstruction.ComputeMeanObservationsPerRegImage();
+  buffer << "\nAvg. Reproj. Err (pixels): " << reconstruction.ComputeMeanReprojectionError() << "\n";
+
   BundleAdjustmentController ba_controller(options, &reconstruction);
   ba_controller.Start();
   ba_controller.Wait();
 
   reconstruction.Write(output_path);
+
+  // @kai print statistics
+  std::cout << buffer.str();
+  std::cout << "\nAfter Global Bundle Adjustment:";
+  std::cout << "\n# of 3D points: " << reconstruction.NumPoints3D();
+  std::cout << "\n# of Images Registered: " << reconstruction.NumRegImages() << "/" << reconstruction.NumImages();
+  std::cout << "\nAvg. Track Length: " << reconstruction.ComputeMeanTrackLength();
+  std::cout << "\nAvg. Per-view Triangulated Observations: " << reconstruction.ComputeMeanObservationsPerRegImage();
+  std::cout << "\nAvg. Reproj. Err (pixels): " << reconstruction.ComputeMeanReprojectionError() << "\n";
 
   return EXIT_SUCCESS;
 }
@@ -1279,6 +1298,9 @@ int RunPointTriangulator(int argc, char** argv) {
     timer.PrintMinutes();
   }
 
+  // @kai
+  std::string stats = database_cache.GetStatsString();
+
   std::cout << std::endl;
 
   Reconstruction reconstruction;
@@ -1357,6 +1379,17 @@ int RunPointTriangulator(int argc, char** argv) {
   mapper.EndReconstruction(kDiscardReconstruction);
 
   reconstruction.Write(output_path);
+
+    // @kai print statistics of the correspondence graph
+  PrintHeading1("Printing Statistics");
+  std::cout << "Before Point Triangulation:";
+  std::cout << stats;
+  std::cout << "\nAfter Point Triangulation:";
+  std::cout << "\n# of 3D points: " << reconstruction.NumPoints3D();
+  std::cout << "\n# of Images Registered: " << reconstruction.NumRegImages() << "/" << reconstruction.NumImages();
+  std::cout << "\nAvg. Track Length: " << reconstruction.ComputeMeanTrackLength();
+  std::cout << "\nAvg. Per-view Triangulated Observations: " << reconstruction.ComputeMeanObservationsPerRegImage();
+  std::cout << "\nAvg. Reproj. Err (pixels): " << reconstruction.ComputeMeanReprojectionError() << "\n";
 
   return EXIT_SUCCESS;
 }

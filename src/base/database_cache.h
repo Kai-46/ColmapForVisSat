@@ -36,7 +36,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
+#include <sstream>
 #include <Eigen/Core>
 
 #include "base/camera.h"
@@ -91,6 +91,58 @@ class DatabaseCache {
   void Load(const Database& database, const size_t min_num_matches,
             const bool ignore_watermarks,
             const std::set<std::string>& image_names);
+
+   // @kai print statistics
+  std::string GetStatsString() const {
+    std::stringstream buffer;
+
+    std::vector<int> num_observations;
+    std::vector<int> image_ids;
+    // per-view observations
+    for (const auto& image: images_) {
+      image_ids.push_back(image.first);
+      int cnt = image.second.NumObservations();
+      std::cout << image.second.Name() << ", " << cnt << std::endl;
+      num_observations.push_back(cnt);
+    }
+    std::sort(num_observations.begin(), num_observations.end()); 
+    int min_val = num_observations[0];
+    int max_val = num_observations.back();
+    
+    double avg_val = 0.0;
+    for(size_t i=0; i<num_observations.size(); ++i) {
+      avg_val += num_observations[i];
+    }
+    avg_val /= num_observations.size();
+    buffer << "\nAvg. Per-view Observations: " << avg_val;
+    buffer << "\nMin. Per-view Observations: " << min_val;
+    buffer << "\nMax. Per-view Observations: " << max_val;
+
+    // pair-wise matches
+    std::vector<int> num_pairwise_matches;
+    for (size_t i=0; i<image_ids.size(); ++i) {
+      for (size_t j=i+1; j<image_ids.size(); ++j) {
+        int cnt = correspondence_graph_.NumCorrespondencesBetweenImages(image_ids[i], image_ids[j]);
+        num_pairwise_matches.push_back(cnt);
+      }
+    }
+
+    std::sort(num_pairwise_matches.begin(), num_pairwise_matches.end()); 
+    min_val = num_pairwise_matches[0];
+    max_val = num_pairwise_matches.back();
+    
+    avg_val = 0.0;
+    for(size_t i=0; i<num_pairwise_matches.size(); ++i) {
+      avg_val += num_pairwise_matches[i];
+    }
+    avg_val /= num_pairwise_matches.size();
+    buffer << "\nAvg. Pair-wise Matches: " << avg_val;
+    buffer << "\nMin. Pair-wise Matches: " << min_val;
+    buffer << "\nMax. Pair-wise Matches: " << max_val << std::endl;
+
+    return buffer.str();
+  }
+
 
  private:
   class CorrespondenceGraph correspondence_graph_;
