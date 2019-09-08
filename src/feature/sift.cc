@@ -199,13 +199,13 @@ void FindBestMatches(const Eigen::MatrixXi& dists, const float max_ratio,
 
 void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
                                    const FeatureDescriptors& descriptors) {
-  if (sift_match_gpu.GetMaxSift() < descriptors.rows()) {
-    std::cout << StringPrintf(
-                     "WARNING: Clamping features from %d to %d - consider "
-                     "increasing the maximum number of matches.",
-                     descriptors.rows(), sift_match_gpu.GetMaxSift())
-              << std::endl;
-  }
+//   if (sift_match_gpu.GetMaxSift() < descriptors.rows()) {
+//     std::cout << StringPrintf(
+//                      "WARNING: Clamping features from %d to %d - consider "
+//                      "increasing the maximum number of matches.",
+//                      descriptors.rows(), sift_match_gpu.GetMaxSift())
+//               << std::endl;
+//   }
 }
 
 void WarnDarknessAdaptivityNotAvailable() {
