@@ -222,6 +222,7 @@ void StereoFusion::Run() {
     double K[9];
     image.GetKDouble(K);
     K[0] *= bitmap_scales_.at(image_idx).first; // fx
+    K[1] *= bitmap_scales_.at(image_idx).first; // s
     K[2] *= bitmap_scales_.at(image_idx).first; // cx
     K[4] *= bitmap_scales_.at(image_idx).second; // fy
     K[5] *= bitmap_scales_.at(image_idx).second; // cy

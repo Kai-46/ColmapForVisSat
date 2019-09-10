@@ -90,6 +90,12 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
   K(0, 2) = PrincipalPointX();
   K(1, 2) = PrincipalPointY();
 
+  // check if the camera model is perspective
+  if (model_id_ == PerspectiveCameraModel::model_id) {
+    const std::vector<size_t>& extra_params_idxs = ExtraParamsIdxs();
+    K(0, 1) = params_[extra_params_idxs[0]];
+  }
+
   return K;
 }
 
