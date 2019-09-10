@@ -81,12 +81,12 @@ class Image {
   void GetC(float C[3]) const;
   void GetPinvP(float P[16], float inv_P[16]) const;
 
-  void Rotate90Multi_test(int cnt) const;
-  void Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
-  void Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
-  void Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
-  void Rotate180(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
-  void Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
+//  void Rotate90Multi_test(int cnt) const;
+  void Rotate90Multi(int cnt, float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
+  void Original(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
+  void Rotate90(float K[9], float inv_K[9],float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
+  void Rotate180(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
+  void Rotate270(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const;
 
  private:
   std::string path_;
@@ -99,10 +99,6 @@ class Image {
   Bitmap bitmap_;
 };
 
-// only useful to estimate homography
-void ComputeRelativePose(const float R1[9], const float T1[3],
-                         const float R2[9], const float T2[3], float R[9],
-                         float T[3]);
 
 }  // namespace mvs
 }  // namespace colmap

@@ -59,7 +59,11 @@ struct Model {
   // Read the model from different data formats.
   void Read(const std::string& path, const std::string& format);
   void ReadFromCOLMAP(const std::string& path);
-//  void ReadFromPMVS(const std::string& path);
+
+  // Compute the robust minimum and maximum depths from the sparse point cloud.
+  std::vector<std::pair<float, float>> GetDepthRanges() const {
+    return depth_ranges_;
+  }
 
   // Get the image index for the given image name.
   int GetImageIdx(const std::string& name) const;
@@ -70,12 +74,6 @@ struct Model {
   // triangulation angle of the points.
   std::vector<std::vector<int>> GetMaxOverlappingImages(
       const size_t num_images, const double min_triangulation_angle) const;
-
-  // Get the overlapping images defined in the vis.dat file.
-  const std::vector<std::vector<int>>& GetMaxOverlappingImagesFromPMVS() const;
-
-  // Compute the robust minimum and maximum depths from the sparse point cloud.
-  std::vector<std::pair<float, float>> ComputeDepthRanges() const;
 
   // Compute the number of shared points between all overlapping images.
   std::vector<std::map<int, int>> ComputeSharedPoints() const;
@@ -93,13 +91,9 @@ struct Model {
   std::vector<Point> points;
 
  private:
-//  bool ReadFromBundlerPMVS(const std::string& path);
-//  bool ReadFromRawPMVS(const std::string& path);
-
   std::vector<std::string> image_names_;
   std::unordered_map<std::string, int> image_name_to_idx_;
-
-//  std::vector<std::vector<int>> pmvs_vis_dat_;
+  std::vector<std::pair<float, float>> depth_ranges_;
 };
 
 }  // namespace mvs

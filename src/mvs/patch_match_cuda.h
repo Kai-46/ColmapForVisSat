@@ -99,27 +99,23 @@ class PatchMatchCuda {
   std::unique_ptr<CudaArrayWrapper<uint8_t>> src_images_device_;
   std::unique_ptr<CudaArrayWrapper<float>> src_depth_maps_device_;
 
-  // Relative poses from rotated versions of reference image to source images
-  // corresponding to _rotationInHalfPi:
+  // Source images
   //
   //    [S(1), S(2), S(3), ..., S(n)]
   //
   // where n is the number of source images and:
   //
-  //    S(i) = [K_i(0, 0), K_i(0, 2), K_i(1, 1), K_i(1, 2), R_i(:), T_i(:)
-  //            C_i(:), P(:), P^-1(:)]
+  //    S(i) = [P(:), P^-1(:), C_i(:)]
   //
-  // where i denotes the index of the source image and K is its calibration.
-  // R, T, C, P, P^-1 denote the relative rotation, translation, camera
-  // center, projection, and inverse projection from there reference to the
-  // i-th source image.
-  std::unique_ptr<CudaArrayWrapper<float>> poses_device_[4];
+  // where i denotes the index of the source image; P, P^-1 denote its 4 by 4 projection, and inverse projection matrices;
+  // C is its camera center
+
+  std::unique_ptr<CudaArrayWrapper<float>> poses_device_;
 
   // Calibration matrix for rotated versions of reference image
-  // as {K[0, 0], K[0, 2], K[1, 1], K[1, 2]} corresponding to _rotationInHalfPi.
-  // Calibration and extrinsics are only used for computing inter-image homography
-  float ref_K_host_[4][4];
-  float ref_inv_K_host_[4][4];
+  // as {K[0, 0], K[0, 1], K[0, 2], K[1, 0], K[1, 1], K[1, 2]} corresponding to _rotationInHalfPi.
+  float ref_K_host_[4][6];
+  float ref_inv_K_host_[4][6];
 
   // Extrinsics for rotated versions of reference image
   float ref_R_host_[4][9];
@@ -128,7 +124,9 @@ class PatchMatchCuda {
   // Projection center of the reference image in scene coordinate frame
   // rotation does not affect the projection center
   float ref_C_host_[3];
-  float max_dist_per_pixel_host_ = 0.5; // 0.5 meters
+
+  // max depth difference for adjacent pixels during depth propagation
+  float max_dist_per_pixel_host_ = 1.0; // 1.0 meters
 
   // Projection matrix and inverse projection matrix for rotated versions of reference image
   float ref_P_host_[4][16];

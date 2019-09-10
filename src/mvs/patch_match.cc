@@ -149,15 +149,6 @@ void PatchMatch::Check() const {
     CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
     CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
-    // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    float K[9];
-    image.GetK(K);
-    CHECK_LT(std::abs(K[1] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(K[3] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(K[6] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(K[7] - 0.0f), 1e-6f) << image_idx;
-    CHECK_LT(std::abs(K[8] - 1.0f), 1e-6f) << image_idx;
-
     if (options_.geom_consistency) {
       CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
       const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
@@ -218,12 +209,6 @@ void PatchMatchController::Run() {
   ReadProblems();
   ReadGpuIndices();
 
-  // write into to text file
-  std::ofstream	ref2src_file(JoinPaths(workspace_path_, "ref2src.txt"), std::ios::trunc);
-  for(int i=0; i < problems_.size(); ++i) {
-	  ref2src_file << problems_[i].PrintToString();
-  }
-  ref2src_file.close();
 
   // new thread pool
   thread_pool_.reset(new ThreadPool(gpu_indices_.size()));
@@ -264,10 +249,6 @@ void PatchMatchController::ReadWorkspace() {
 
   auto workspace_format_lower_case = workspace_format_;
   StringToLower(&workspace_format_lower_case);
-//  if (workspace_format_lower_case == "pmvs") {
-//    workspace_options.stereo_folder =
-//        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
-//  }
 
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = false;
@@ -278,14 +259,7 @@ void PatchMatchController::ReadWorkspace() {
 
   workspace_.reset(new Workspace(workspace_options));
 
-//  if (workspace_format_lower_case == "pmvs") {
-//    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
-//                              pmvs_option_name_.c_str())
-//              << std::endl;
-//    ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
-//  }
-
-  depth_ranges_ = workspace_->GetModel().ComputeDepthRanges();
+  depth_ranges_ = workspace_->GetModel().GetDepthRanges();
 }
 
 void PatchMatchController::ReadProblems() {
@@ -314,6 +288,7 @@ void PatchMatchController::ReadProblems() {
   };
   std::vector<ProblemConfig> problem_configs;
 
+  // read patch-match.cfg
   for (size_t i = 0; i < config.size(); ++i) {
     std::string& config_line = config[i];
     StringTrim(&config_line);
@@ -337,6 +312,7 @@ void PatchMatchController::ReadProblems() {
     ref_image_name.clear();
   }
 
+  // post-process patch-match.cfg
   for (const auto& problem_config : problem_configs) {
     PatchMatch::Problem problem;
 
@@ -401,7 +377,7 @@ void PatchMatchController::ReadProblems() {
       for (size_t i = 0; i < eff_max_num_src_images; ++i) {
         problem.src_image_idxs.push_back(src_images[i].first);
       }
-    } else {
+    } else {  // source images directly specified in patch-match.cfg
       problem.src_image_idxs.reserve(problem_config.src_image_names.size());
       for (const auto& src_image_name : problem_config.src_image_names) {
         problem.src_image_idxs.push_back(model.GetImageIdx(src_image_name));
@@ -419,6 +395,13 @@ void PatchMatchController::ReadProblems() {
       problems_.push_back(problem);
     }
   }
+
+  // write all problems into a text
+  std::ofstream	ref2src_file(JoinPaths(workspace_path_, "ref2src.txt"), std::ios::trunc);
+  for(size_t i=0; i < problems_.size(); ++i) {
+    ref2src_file << problems_[i].PrintToString();
+  }
+  ref2src_file.close();
 
   std::cout << StringPrintf("Configuration has %d problems...",
                             problems_.size())
@@ -472,7 +455,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   auto patch_match_options = options;
 
-  if (patch_match_options.depth_min < -1e19 || patch_match_options.depth_max < -1e19) {
+  if (patch_match_options.depth_min < -1e19f || patch_match_options.depth_max < -1e19f) {
     patch_match_options.depth_min =
         depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =

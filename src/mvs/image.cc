@@ -187,7 +187,7 @@ void Image::GetPinvPDouble(double P[16], double inv_P[16]) const {
 }
 
 // low-precision output
-void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const{
+void Image::Original(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const{
 	// compute projection matrix
 	double P_double[16];
 	double inv_P_double[16];
@@ -196,8 +196,14 @@ void Image::Original(float K[9], float R[9], float T[3], float P[16], float inv_
 	double C_double[3];
 	ComputeProjectionCenter(R_, T_, C_double);
 
+	// compute inverse K
+	const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> K_mat(K_);
+	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_mat_inv = K_mat.inverse();
+	const double *K_mat_inv_data = K_mat_inv.data();
+
 	// convert to low-precision
 	DoubleArrToFloatArr(K_, K, 9);
+	DoubleArrToFloatArr(K_mat_inv_data, inv_K, 9);
 	DoubleArrToFloatArr(R_, R, 9);
 	DoubleArrToFloatArr(T_, T, 3);
 	DoubleArrToFloatArr(P_double, P, 16);
@@ -213,84 +219,87 @@ inline void MatrixPrint(float *mat, int row_cnt, int col_cnt) {
 	}
 }
 
-void Image::Rotate90Multi_test(int cnt) const {
-	float K[9];
-	float R[9];
-	float T[3];
-	float P[16];
-	float inv_P[16];
-	float C[3];
+//void Image::Rotate90Multi_test(int cnt) const {
+//	float K[9];
+//	float R[9];
+//	float T[3];
+//	float P[16];
+//	float inv_P[16];
+//	float C[3];
+//
+//	Rotate90Multi(cnt, K, R, T, P, inv_P, C);
+//
+//	float K_float[9];
+//	DoubleArrToFloatArr(K_, K_float, 9);
+//	std::cout << "\nrot=0, K_: ";
+//	MatrixPrint(K_float, 3, 3);
+//	std::cout << "\nwidth, height: " << width_ << ", " << height_;
+//	std::cout << "\nrot=" << cnt << ", K: ";
+//	MatrixPrint(K, 3, 3);
+//
+//	float R_float[9];
+//	DoubleArrToFloatArr(R_, R_float, 9);
+//	std::cout << "\nrot=0, R_: ";
+//	MatrixPrint(R_float, 3, 3);
+//	std::cout << "\nrot=" << cnt << ", R: ";
+//    MatrixPrint(R, 3, 3);
+//
+//	float T_float[3];
+//	DoubleArrToFloatArr(T_, T_float, 3);
+//	std::cout << "\nrot=0, T_: ";
+//	MatrixPrint(T_float, 3, 1);
+//	std::cout << "\nrot=" << cnt << ", T: ";
+//	MatrixPrint(T, 3, 1);
+//
+//	float last_row_float[4];
+//	DoubleArrToFloatArr(last_row_, last_row_float, 4);
+//	std::cout << "\nlast_row_: ";
+//	MatrixPrint(last_row_float, 1, 4);
+//	std::cout << "\nrot=" << cnt << ", P: ";
+//	MatrixPrint(P, 4, 4);
+//	std::cout << "\nrot=" << cnt << ", inv_P: ";
+//	MatrixPrint(inv_P, 4, 4);
+//
+//	std::cout << std::endl;
+//}
 
-	Rotate90Multi(cnt, K, R, T, P, inv_P, C);
-
-	float K_float[9];
-	DoubleArrToFloatArr(K_, K_float, 9);
-	std::cout << "\nrot=0, K_: ";
-	MatrixPrint(K_float, 3, 3);
-	std::cout << "\nwidth, height: " << width_ << ", " << height_;
-	std::cout << "\nrot=" << cnt << ", K: ";
-	MatrixPrint(K, 3, 3);
-
-	float R_float[9];
-	DoubleArrToFloatArr(R_, R_float, 9);
-	std::cout << "\nrot=0, R_: ";
-	MatrixPrint(R_float, 3, 3);
-	std::cout << "\nrot=" << cnt << ", R: ";
-    MatrixPrint(R, 3, 3);
-
-	float T_float[3];
-	DoubleArrToFloatArr(T_, T_float, 3);
-	std::cout << "\nrot=0, T_: ";
-	MatrixPrint(T_float, 3, 1);
-	std::cout << "\nrot=" << cnt << ", T: ";
-	MatrixPrint(T, 3, 1);
-
-	float last_row_float[4];
-	DoubleArrToFloatArr(last_row_, last_row_float, 4);
-	std::cout << "\nlast_row_: ";
-	MatrixPrint(last_row_float, 1, 4);
-	std::cout << "\nrot=" << cnt << ", P: ";
-	MatrixPrint(P, 4, 4);
-	std::cout << "\nrot=" << cnt << ", inv_P: ";
-	MatrixPrint(inv_P, 4, 4);
-
-	std::cout << std::endl;
-}
-
-void Image::Rotate90Multi(int cnt, float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
+void Image::Rotate90Multi(int cnt, float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
 	switch (cnt % 4) {
 	case 0:
-		Original(K, R, T, P, inv_P, C);
+		Original(K, inv_K, R, T, P, inv_P, C);
 		break;
 	case 1:
-		Rotate90(K, R, T, P, inv_P, C);
+		Rotate90(K, inv_K, R, T, P, inv_P, C);
 		break;
 	case 2:
-		Rotate180(K, R, T, P, inv_P, C);
+		Rotate180(K, inv_K, R, T, P, inv_P, C);
 		break;
 	case 3:
-		Rotate270(K, R, T, P, inv_P, C);
+		Rotate270(K, inv_K, R, T, P, inv_P, C);
 		break;
 	default:
 		break;
 	}
 }
 
-void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
-	// modify intrinsics
-	double K_new[9] = {0.};
-	double fx_old = K_[0];
-	double cx_old = K_[2];
-	double fy_old = K_[4];
-	double cy_old = K_[5];
+// rotate the camera coordinate frame by 90 degrees
+// a 3d point (X, Y, Z) in camera coordinate frame is rotated to (Y, -X, Z)
+// the corresponing pixel (u, v) is rotated to (v, w-1-u)
+// [u; v; 1] = K[X; Y; Z]
+// needs to modify the intrinsics so that the new mapping holds, i.e.,
+// [v; w-1-u; 1] = K'[Y; -X; Z]
+// first, [X; Y; Z]= [0, -1, 0; 1, 0, 0; 0, 0, 1][Y; -X; Z]
+// then, [v; w-1-u; 1] = [0, 1, 0; -1, 0, w-1; 0, 0, 1][u; v; 1]
+void Image::Rotate90(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
+    // modify intrinsics
+    const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> K_old(K_);
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> A;
+    A << 0, 1, 0, -1, 0, width_-1, 0, 0, 1;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> B;
+    B << 0, -1, 0, 1, 0, 0, 0, 0, 1;
 
-	K_new[0] = fy_old;
-	K_new[2] = cy_old;
-	K_new[4] = fx_old;
-	K_new[5] = -cx_old + width_ - 1;
-
-	// big bug here
-	K_new[8] = 1.0;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new = A * K_old * B;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new_inv = K_new.inverse();
 
 	// modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;
@@ -301,20 +310,23 @@ void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
 	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
+	const double *K_new_data = K_new.data();
+	const double *K_new_inv_data = K_new_inv.data();
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
 
 	// compute projection matrix
 	double P_new_double[16];
 	double inv_P_new_double[16];
-	Compute4by4ProjectionMatrix(K_new, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
+	Compute4by4ProjectionMatrix(K_new_data, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
 
 	// compute projection center
 	double C_new_double[3];
 	ComputeProjectionCenter(R_new_data, T_new_data, C_new_double);
 
 	// convert to low-precision
-	DoubleArrToFloatArr(K_new, K, 9);
+	DoubleArrToFloatArr(K_new_data, K, 9);
+	DoubleArrToFloatArr(K_new_inv_data, inv_K, 9);
 	DoubleArrToFloatArr(R_new_data, R, 9);
 	DoubleArrToFloatArr(T_new_data, T, 3);
 	DoubleArrToFloatArr(P_new_double, P, 16);
@@ -322,21 +334,23 @@ void Image::Rotate90(float K[9], float R[9], float T[3], float P[16], float inv_
 	DoubleArrToFloatArr(C_new_double, C, 3);
 }
 
-void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
-	// modify intrinsics
-	double K_new[9] = {0.};
-	double fx_old = K_[0];
-	double cx_old = K_[2];
-	double fy_old = K_[4];
-	double cy_old = K_[5];
+// a 3d point (X, Y, Z) in camera coordinate frame is rotated to (-X, -Y, Z)
+// the corresponing pixel (u, v) is rotated to (w-1-u, h-1-v)
+// [u; v; 1] = K[X; Y; Z]
+// needs to modify the intrinsics so that the new mapping holds, i.e.,
+// [w-1-u; h-1-v ; 1] = K'[-X; -Y; Z]
+// first, [X; Y; Z]= [-1, 0, 0; 0, -1, 0; 0, 0, 1][-X; -Y; Z]
+// then, [w-1-u; h-1-v; 1] = [-1, 0, w-1; 0, -1, h-1; 0, 0, 1][u; v; 1]
+void Image::Rotate180(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
+    // modify intrinsics
+    const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> K_old(K_);
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> A;
+    A << -1, 0, width_-1, 0, -1, height_-1, 0, 0, 1;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> B;
+    B << -1, 0, 0, 0, -1, 0, 0, 0, 1;
 
-	K_new[0] = fx_old;
-	K_new[2] = -cx_old + width_ - 1;
-	K_new[4] = fy_old;
-	K_new[5] = -cy_old + height_ - 1;
-
-	// bug here
-	K_new[8] = 1.0;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new = A * K_old * B;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new_inv = K_new.inverse();
 
 	// modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;
@@ -348,20 +362,23 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
 	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
+	const double *K_new_data = K_new.data();
+	const double *K_new_inv_data = K_new_inv.data();
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
 
 	// compute projection matrix
 	double P_new_double[16];
 	double inv_P_new_double[16];
-	Compute4by4ProjectionMatrix(K_new, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
+	Compute4by4ProjectionMatrix(K_new_data, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
 
 	// compute projection center
 	double C_new_double[3];
 	ComputeProjectionCenter(R_new_data, T_new_data, C_new_double);
 
 	// convert to low-precision
-	DoubleArrToFloatArr(K_new, K, 9);
+	DoubleArrToFloatArr(K_new_data, K, 9);
+	DoubleArrToFloatArr(K_new_inv_data, inv_K, 9);
 	DoubleArrToFloatArr(R_new_data, R, 9);
 	DoubleArrToFloatArr(T_new_data, T, 3);
 	DoubleArrToFloatArr(P_new_double, P, 16);
@@ -369,24 +386,24 @@ void Image::Rotate180(float K[9], float R[9], float T[3], float P[16], float inv
 	DoubleArrToFloatArr(C_new_double, C, 3);
 }
 
+// a 3d point (X, Y, Z) in camera coordinate frame is rotated to (-Y, X, Z)
+// the corresponing pixel (u, v) is rotated to (h-1-v, u)
+// needs to modify the intrinsics so that the new mapping holds, i.e.,
+// [h-1-v; u ; 1] = K'[-Y; X; Z]
+// first, [X; Y; Z]= [0, 1, 0; -1, 0, 0; 0, 0, 1][-Y; X; Z]
+// then, [h-1-v; u; 1] = [0, -1, h-1; 1, 0, 0; 0, 0, 1][u; v; 1]
+void Image::Rotate270(float K[9], float inv_K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
+    // modify intrinsics
+    const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> K_old(K_);
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> A;
+    A << 0, -1, height_-1, 1, 0, 0, 0, 0, 1;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> B;
+    B << 0, 1, 0, -1, 0, 0, 0, 0, 1;
 
-void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv_P[16], float C[3]) const {
-	// modify intrinsics
-	double K_new[9] = {0.};
-	double fx_old = K_[0];
-	double cx_old = K_[2];
-	double fy_old = K_[4];
-	double cy_old = K_[5];
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new = A * K_old * B;
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K_new_inv = K_new.inverse();
 
-	K_new[0] = fy_old;
-	K_new[2] = -cy_old + height_ - 1;
-	K_new[4] = fx_old;
-	K_new[5] = cx_old;
-
-	// big bug here
-	K_new[8] = 1.0;
-
-	// modify extrinsics
+    // modify extrinsics
 	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> rot;
 	rot << 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
 	rot = rot * rot * rot;
@@ -396,20 +413,23 @@ void Image::Rotate270(float K[9], float R[9], float T[3], float P[16], float inv
 	const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_new = rot * R_old;
 	const Eigen::Matrix<double, 3, 1> T_new = rot * T_old;
 
+	const double *K_new_data = K_new.data();
+	const double *K_new_inv_data = K_new_inv.data();
 	const double *R_new_data = R_new.data();
 	const double *T_new_data = T_new.data();
 
 	// compute projection matrix
 	double P_new_double[16];
 	double inv_P_new_double[16];
-	Compute4by4ProjectionMatrix(K_new, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
+	Compute4by4ProjectionMatrix(K_new_data, R_new_data, T_new_data, last_row_, P_new_double, inv_P_new_double);
 
 	// compute projection center
 	double C_new_double[3];
 	ComputeProjectionCenter(R_new_data, T_new_data, C_new_double);
 
 	// convert to low-precision
-	DoubleArrToFloatArr(K_new, K, 9);
+	DoubleArrToFloatArr(K_new_data, K, 9);
+	DoubleArrToFloatArr(K_new_inv_data, inv_K, 9);
 	DoubleArrToFloatArr(R_new_data, R, 9);
 	DoubleArrToFloatArr(T_new_data, T, 3);
 	DoubleArrToFloatArr(P_new_double, P, 16);
@@ -431,6 +451,7 @@ void Image::Rescale(const float factor_x, const float factor_y) {
   const double scale_x = new_width / static_cast<float>(width_);
   const double scale_y = new_height / static_cast<float>(height_);
   K_[0] *= scale_x;
+  K_[1] *= scale_x;
   K_[2] *= scale_x;
   K_[4] *= scale_y;
   K_[5] *= scale_y;
@@ -447,22 +468,6 @@ void Image::Downsize(const size_t max_width, const size_t max_height) {
   const float factor_x = static_cast<float>(max_width) / width_;
   const float factor_y = static_cast<float>(max_height) / height_;
   Rescale(std::min(factor_x, factor_y));
-}
-
-
-// only useful to estimate homography
-void ComputeRelativePose(const float R1[9], const float T1[3],
-                         const float R2[9], const float T2[3], float R[9],
-                         float T[3]) {
-  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R1_m(R1);
-  const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R2_m(R2);
-  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T1_m(T1);
-  const Eigen::Map<const Eigen::Matrix<float, 3, 1>> T2_m(T2);
-  Eigen::Map<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R_m(R);
-  Eigen::Map<Eigen::Vector3f> T_m(T);
-
-  R_m = R2_m * R1_m.transpose();
-  T_m = T2_m - R_m * T1_m;
 }
 
 
