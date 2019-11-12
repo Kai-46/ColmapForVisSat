@@ -1,8 +1,12 @@
-Quick Installation
+ColmapForSatelliteStereo
+======
 
+We enhanced the original COLMAP so that it can work on satellite images. You can find information about the original COLMAP below. 
+
+Quick Installation
+-----
 Run the script "ubuntu1804_install_dependencies.sh" first to install dependent software packages, then use the script "ubuntu1804_install_colmap.sh" to build and install colmap on your machine.
 
-================================================================================================================================================================================================================================================================================
 </br>
 
 COLMAP
