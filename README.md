@@ -1,4 +1,4 @@
-ColmapForSatelliteStereo
+ColmapForVisSat
 ======
 
 We enhanced the original COLMAP so that it can work on satellite images. You can find information about the original COLMAP below. 
