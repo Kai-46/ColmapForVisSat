@@ -25,7 +25,8 @@ sudo apt-get install nvidia-driver-390 nvidia-utils-390 nvidia-cuda-toolkit
 sudo apt-get install libatlas-base-dev libsuitesparse-dev
 git clone https://ceres-solver.googlesource.com/ceres-solver
 cd ceres-solver
-git checkout $(git describe --tags) # Checkout the latest release
+# git checkout $(git describe --tags) # Checkout the latest release
+git checkout facb199f3eda902360f9e1d5271372b7e54febe1 # ceres solver 1.14.0
 mkdir build
 cd build
 cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
