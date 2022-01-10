@@ -1,0 +1,1 @@
+CC=/usr/bin/gcc-7 CXX=/usr/bin/g++-7 python scripts/python/build.py --build_path ./build --colmap_path ./ 2>&1 | tee log.txt
