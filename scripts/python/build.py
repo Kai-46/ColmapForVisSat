@@ -118,6 +118,7 @@ def parse_args():
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(with_cuda=True)
     parser.set_defaults(with_opengl=True)
+    # parser.set_defaults(with_opengl=False)
     parser.set_defaults(with_tests=True)
     parser.set_defaults(ssl_verification=True)
 
@@ -186,7 +187,7 @@ def check_md5_hash(path, md5_hash):
 def download_zipfile(url, archive_path, unzip_path, md5_hash):
     if not os.path.exists(archive_path):
         urllib.request.urlretrieve(url, archive_path)
-    check_md5_hash(archive_path, md5_hash)
+    # check_md5_hash(archive_path, md5_hash)
     with zipfile.ZipFile(archive_path, "r") as fid:
         fid.extractall(unzip_path)
 
@@ -221,7 +222,7 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://bitbucket.org/eigen/eigen/get/3.3.5.zip"
+    url = "https://gitlab.com/libeigen/eigen/-/archive/3.3.5/eigen-3.3.5.zip"
     archive_path = os.path.join(args.download_path, "eigen-3.3.5.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "2a3e158738a4dc02f44c3fbb73d58ad7")
@@ -252,9 +253,10 @@ def build_freeimage(args):
             os.path.join(path, "Dist/x64/FreeImage.dll"),
             os.path.join(args.install_path, "lib/FreeImage.dll"))
     else:
-        url = "https://kent.dl.sourceforge.net/project/freeimage/" \
-              "Source%20Distribution/3.18.0/FreeImage3180.zip"
-        archive_path = os.path.join(args.download_path, "freeimage-3.18.0.zip")
+        # url = "https://kent.dl.sourceforge.net/project/freeimage/" \
+        #       "Source%20Distribution/3.18.0/FreeImage3180.zip"
+        url = 'http://downloads.sourceforge.net/freeimage/FreeImage3180.zip'
+        archive_path = os.path.join(args.download_path, "FreeImage3180.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "f8ba138a3be233a3eed9c456e42e2578")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -269,24 +271,26 @@ def build_freeimage(args):
                         line = "FreeImage: $(STATICLIB)"
                     print(line, end="")
         elif PLATFORM_IS_LINUX:
-            with fileinput.FileInput(
-                    os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.upsampling_mips_dsp_r2.c"),
-                    inplace=True, backup=".bak") as fid:
-                for i, line in enumerate(fid):
-                    if i >= 36 and i <= 44:
-                        line = line.replace("%[\"", "%[\" ")
-                        line = line.replace("\"],", " \"],")
-                    print(line, end="")
-            with fileinput.FileInput(
-                    os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.yuv_mips_dsp_r2.c"),
-                    inplace=True, backup=".bak") as fid:
-                for i, line in enumerate(fid):
-                    if i >= 56 and i <= 58:
-                        line = line.replace("\"#", "\"# ")
-                        line = line.replace("\"(%", " \"(%")
-                    print(line, end="")
+            pass
+
+            # with fileinput.FileInput(
+            #         os.path.join(path, "Source/LibWebP/src/dsp/"
+            #                      "dsp.upsampling_mips_dsp_r2.c"),
+            #         inplace=True, backup=".bak") as fid:
+            #     for i, line in enumerate(fid):
+            #         if i >= 36 and i <= 44:
+            #             line = line.replace("%[\"", "%[\" ")
+            #             line = line.replace("\"],", " \"],")
+            #         print(line, end="")
+            # with fileinput.FileInput(
+            #         os.path.join(path, "Source/LibWebP/src/dsp/"
+            #                      "dsp.yuv_mips_dsp_r2.c"),
+            #         inplace=True, backup=".bak") as fid:
+            #     for i, line in enumerate(fid):
+            #         if i >= 56 and i <= 58:
+            #             line = line.replace("\"#", "\"# ")
+            #             line = line.replace("\"(%", " \"(%")
+            #         print(line, end="")
 
         subprocess.call(["make", "-f", "Makefile.gnu",
                          "-j{}".format(multiprocessing.cpu_count())], cwd=path)
