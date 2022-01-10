@@ -33,6 +33,11 @@ cmake_minimum_required(VERSION 3.0)
 
 project(COLMAP)
 
+### added by Kai
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(COLMAP_VERSION "3.6")
 set(COLMAP_VERSION_NUMBER "3600")
 
