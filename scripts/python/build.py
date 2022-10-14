@@ -39,7 +39,8 @@ import argparse
 import zipfile
 import hashlib
 import ssl
-import urllib.request
+#import urllib.request
+import requests
 import subprocess
 import multiprocessing
 
@@ -186,7 +187,10 @@ def check_md5_hash(path, md5_hash):
 
 def download_zipfile(url, archive_path, unzip_path, md5_hash):
     if not os.path.exists(archive_path):
-        urllib.request.urlretrieve(url, archive_path)
+        r = requests.get(url)
+        with open(archive_path, 'wb') as outfile:
+            outfile.write(r.content)
+        #urllib.request.urlretrieve(url, archive_path)
     # check_md5_hash(archive_path, md5_hash)
     with zipfile.ZipFile(archive_path, "r") as fid:
         fid.extractall(unzip_path)
@@ -308,8 +312,7 @@ def build_glew(args):
     if os.path.exists(path):
         return
 
-    url = "https://kent.dl.sourceforge.net/project/glew/" \
-          "glew/2.1.0/glew-2.1.0.zip"
+    url = "https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0.zip"
     archive_path = os.path.join(args.download_path, "glew-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "dff2939fd404d054c1036cc0409d19f1")
